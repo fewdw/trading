@@ -5,3 +5,4 @@ target
 .DS_Store
 Dockerfile
 .dockerignore
+.env

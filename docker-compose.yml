@@ -39,18 +39,28 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/app
       SPRING_DATASOURCE_USERNAME: app
       SPRING_DATASOURCE_PASSWORD: app
+      SCRAPER_URL: ${SCRAPER_URL}
     ports:
       - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
+      scrape:
+        condition: service_started
+
+  scrape:
+    build:
+      context: ./scrape
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
 
   frontend:
     build:
       context: ./client
     restart: unless-stopped
     environment:
-      BACKEND_URL: http://backend:8080
+      BACKEND_URL: ${BACKEND_URL}
       NODE_ENV: production
     ports:
       - "3000:3000"

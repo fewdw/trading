@@ -9,6 +9,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -63,6 +65,11 @@ public class AuthController {
         user.setUsername(body.username());
         user.setPasswordHash(passwordEncoder.encode(body.password()));
         user = userRepository.save(user);
+        log.info(
+            "New user signed up: {} (id={})",
+            user.getUsername(),
+            user.getId()
+        );
         String token = createSession(user.getId());
         return ResponseEntity.ok(authResponse(token, user));
     }
@@ -102,16 +109,18 @@ public class AuthController {
             required = false
         ) String authHeader
     ) {
-        Optional<User> user = resolveUser(authHeader);
-        if (user.isEmpty()) {
+        Optional<User> maybeUser = resolveUser(authHeader);
+        if (maybeUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
                 Map.of("error", "unauthorized")
             );
         }
+        User user = maybeUser.get();
         Map<String, Object> body = new HashMap<>();
-        body.put("id", user.get().getId());
-        body.put("username", user.get().getUsername());
-        body.put("coins", user.get().getCoins());
+        body.put("id", user.getId());
+        body.put("username", user.getUsername());
+        body.put("available_coins", user.getAvailableCoins());
+        body.put("reserved_coins", user.getReservedCoins());
         return ResponseEntity.ok(body);
     }
 
@@ -171,7 +180,8 @@ public class AuthController {
         Map<String, Object> userMap = new HashMap<>();
         userMap.put("id", user.getId());
         userMap.put("username", user.getUsername());
-        userMap.put("coins", user.getCoins());
+        userMap.put("available_coins", user.getAvailableCoins());
+        userMap.put("reserved_coins", user.getReservedCoins());
         body.put("user", userMap);
         return body;
     }

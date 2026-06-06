@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -33,4 +34,7 @@ public class User {
 
     @Column(nullable = false, columnDefinition = "integer not null default 0")
     private long reservedCoins = 0;
+
+    @Version
+    private long version;
 }

@@ -31,4 +31,7 @@ public class Fighter {
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private Status status;
+
+    @Column(nullable = false)
+    private long lastPrice;
 }

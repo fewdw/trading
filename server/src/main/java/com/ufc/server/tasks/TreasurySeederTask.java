@@ -5,6 +5,7 @@ import com.ufc.server.user.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
@@ -18,7 +19,7 @@ import org.springframework.stereotype.Component;
 public class TreasurySeederTask {
 
     public static final String TREASURY_USERNAME = "__TREASURY__";
-    public static final long INITIAL_COINS = 1_000_000L;
+    public static final long INITIAL_COINS = 1_000_000L * 100L;
 
     private final UserRepository userRepository;
 
@@ -26,6 +27,7 @@ public class TreasurySeederTask {
         this.userRepository = userRepository;
     }
 
+    @Order(1)
     @EventListener(ApplicationReadyEvent.class)
     public void ensureTreasuryExists() {
         if (!userRepository.existsByUsername(TREASURY_USERNAME)) {

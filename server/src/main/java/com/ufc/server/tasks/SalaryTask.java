@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class SalaryTask {
 
-    private static final long SALARY = 500;
+    private static final long SALARY = 500 * 100L;
 
     private final UserRepository userRepository;
 

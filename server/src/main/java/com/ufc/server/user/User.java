@@ -16,6 +16,8 @@ import lombok.Setter;
 @Setter
 public class User {
 
+    public static final long STARTING_COINS = 1000L * 100L;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -30,7 +32,7 @@ public class User {
         nullable = false,
         columnDefinition = "integer not null default 1000"
     )
-    private long availableCoins = 10_000;
+    private long availableCoins = STARTING_COINS;
 
     @Column(nullable = false, columnDefinition = "integer not null default 0")
     private long reservedCoins = 0;

@@ -3,6 +3,8 @@ package com.ufc.server.tasks;
 import com.ufc.server.ranking.Fighter;
 import com.ufc.server.ranking.FighterRepository;
 import com.ufc.server.ranking.Status;
+import com.ufc.server.user.UserRepository;
+import com.ufc.server.user.UserService;
 import java.text.Normalizer;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.annotation.Order;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -35,13 +38,17 @@ public class PopulateFightersTask {
 
     private final RestClient scraper;
     private final FighterRepository fighterRepository;
+    private final UserService userService;
 
     public PopulateFightersTask(
         @Value("${scraper.base-url}") String scraperBaseUrl,
-        FighterRepository fighterRepository
+        FighterRepository fighterRepository,
+        UserRepository userRepository,
+        UserService userService
     ) {
         this.scraper = RestClient.create(scraperBaseUrl);
         this.fighterRepository = fighterRepository;
+        this.userService = userService;
     }
 
     // Weekly: Mondays at 06:00. Time zone defaults to UTC; override with
@@ -61,6 +68,7 @@ public class PopulateFightersTask {
 
     // Seed once at startup only when there's nothing stored yet, so we don't
     // sit empty until the first Monday. No-op once data exists.
+    @Order(2)
     @EventListener(ApplicationReadyEvent.class)
     public void seedIfEmpty() {
         if (fighterRepository.count() == 0) {
@@ -94,6 +102,8 @@ public class PopulateFightersTask {
                 }
             }
         }
+
+        userService.allocateIpoToTreasury();
 
         return incoming.size();
     }

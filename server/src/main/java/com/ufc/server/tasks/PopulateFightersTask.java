@@ -93,7 +93,7 @@ public class PopulateFightersTask {
                 Fighter fighter = new Fighter();
                 fighter.setName(name);
                 fighter.setPhoto(f.photo());
-                fighter.setStatus(Status.IPO);
+                fighter.setStatus(Status.ACTIVE);
                 fighter.setLastPrice(100);
                 fighterRepository.save(fighter);
                 log.info("adding fighter: {}", name);
@@ -103,7 +103,7 @@ public class PopulateFightersTask {
             }
         }
 
-        userService.allocateIpoToTreasury();
+        userService.seedNewFightersToTreasury();
 
         return incoming.size();
     }

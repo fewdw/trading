@@ -11,9 +11,13 @@ import com.ufc.server.trade.Trade;
 import com.ufc.server.trade.TradeRepository;
 import com.ufc.server.user.User;
 import com.ufc.server.user.UserRepository;
+import com.ufc.server.websocket.BalanceUpdateEvent;
+import com.ufc.server.websocket.MarketUpdateEvent;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.Predicate;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,19 +47,40 @@ public class OrderService {
     private final HoldingRepository holdingRepository;
     private final OrderRepository orderRepository;
     private final TradeRepository tradeRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public OrderService(
         FighterRepository fighterRepository,
         UserRepository userRepository,
         HoldingRepository holdingRepository,
         OrderRepository orderRepository,
-        TradeRepository tradeRepository
+        TradeRepository tradeRepository,
+        ApplicationEventPublisher eventPublisher
     ) {
         this.fighterRepository = fighterRepository;
         this.userRepository = userRepository;
         this.holdingRepository = holdingRepository;
         this.orderRepository = orderRepository;
         this.tradeRepository = tradeRepository;
+        this.eventPublisher = eventPublisher;
+    }
+
+    /**
+     * Publish post-commit realtime events: the actor's new balance (live navbar)
+     * and a market-changed broadcast (open fighter pages refresh their book).
+     * Counterparties' balances refresh on their next page load.
+     */
+    private void publishRealtime(User actor, Fighter fighter) {
+        eventPublisher.publishEvent(
+            new BalanceUpdateEvent(
+                actor.getId(),
+                actor.getAvailableCoins(),
+                actor.getReservedCoins()
+            )
+        );
+        eventPublisher.publishEvent(
+            new MarketUpdateEvent(fighter.getId(), fighter.getLastPrice())
+        );
     }
 
     // ------------------------------------------------------------------
@@ -73,6 +98,7 @@ public class OrderService {
         order.setFighter(fighter);
         order.setSide(dto.side());
         order.setType(type);
+        order.setCreatedAt(Instant.now());
         // @ValidLimitPrice guarantees a limit price is present iff LIMIT.
         order.setLimitPrice(type == OrderType.LIMIT ? dto.limitPrice() : null);
         order.setQuantity(dto.quantity());
@@ -92,6 +118,7 @@ public class OrderService {
         // 4. Settle whatever did not fill.
         settleRemainder(actor, fighter, order, reserved);
 
+        publishRealtime(actor, fighter);
         return OrderDto.from(order);
     }
 
@@ -121,9 +148,10 @@ public class OrderService {
 
         // BUY: reserve coins. A limit cost is known exactly; a market cost is
         // estimated by pre-walking the asks (capped at what the user can afford).
-        long budget = order.getType() == OrderType.LIMIT
-            ? order.getQuantity() * order.getLimitPrice()
-            : estimateMarketBuyCost(actor, fighter, order.getQuantity());
+        long budget =
+            order.getType() == OrderType.LIMIT
+                ? order.getQuantity() * order.getLimitPrice()
+                : estimateMarketBuyCost(actor, fighter, order.getQuantity());
 
         if (
             order.getType() == OrderType.LIMIT &&
@@ -140,39 +168,47 @@ public class OrderService {
     }
 
     /** Match the incoming order against the book; returns coins still reserved for it. */
-    private long match(User actor, Fighter fighter, Order order, long reserved) {
-        List<Order> book = order.getSide() == OrderSide.BUY
-            ? orderRepository.findOpenAsks(fighter)
-            : orderRepository.findOpenBids(fighter);
+    private long match(
+        User actor,
+        Fighter fighter,
+        Order order,
+        long reserved
+    ) {
+        List<Order> book =
+            order.getSide() == OrderSide.BUY
+                ? orderRepository.findOpenAsks(fighter)
+                : orderRepository.findOpenBids(fighter);
 
         long remaining = order.getQuantity();
         for (Order resting : book) {
             if (remaining <= 0) break;
-            if (isSelf(resting, actor)) continue; // self-trade prevention
+            if (isSelf(resting, actor)) continue;
             long restingRemaining =
                 resting.getQuantity() - resting.getFilledQuantity();
             if (restingRemaining <= 0) continue;
 
-            long price = resting.getLimitPrice(); // resting orders are always LIMIT
+            long price = resting.getLimitPrice();
             if (order.getType() == OrderType.LIMIT) {
-                boolean crosses = order.getSide() == OrderSide.BUY
-                    ? order.getLimitPrice() >= price
-                    : order.getLimitPrice() <= price;
-                if (!crosses) break; // book is price-sorted; nothing better follows
+                boolean crosses =
+                    order.getSide() == OrderSide.BUY
+                        ? order.getLimitPrice() >= price
+                        : order.getLimitPrice() <= price;
+                if (!crosses) break;
             }
 
             long fillQty = Math.min(remaining, restingRemaining);
             if (order.getSide() == OrderSide.BUY) {
-                fillQty = Math.min(fillQty, reserved / price); // never overspend
+                fillQty = Math.min(fillQty, reserved / price);
                 if (fillQty <= 0) break;
             }
 
             executeTrade(order, resting, fillQty, price, fighter);
 
             if (order.getSide() == OrderSide.BUY) {
-                reserved -= order.getType() == OrderType.LIMIT
-                    ? fillQty * order.getLimitPrice()
-                    : fillQty * price;
+                reserved -=
+                    order.getType() == OrderType.LIMIT
+                        ? fillQty * order.getLimitPrice()
+                        : fillQty * price;
             }
             remaining -= fillQty;
         }
@@ -209,7 +245,9 @@ public class OrderService {
         } else if (order.getType() == OrderType.MARKET) {
             order.setStatus(OrderStatus.CANCELLED); // partial market fill, rest dropped
         } else {
-            order.setStatus(filled > 0 ? OrderStatus.PARTIAL : OrderStatus.OPEN);
+            order.setStatus(
+                filled > 0 ? OrderStatus.PARTIAL : OrderStatus.OPEN
+            );
         }
         // A resting LIMIT remainder keeps its reservation in place.
     }
@@ -222,10 +260,10 @@ public class OrderService {
         long price,
         Fighter fighter
     ) {
-        Order buyOrder = incoming.getSide() == OrderSide.BUY ? incoming : resting;
-        Order sellOrder = incoming.getSide() == OrderSide.SELL
-            ? incoming
-            : resting;
+        Order buyOrder =
+            incoming.getSide() == OrderSide.BUY ? incoming : resting;
+        Order sellOrder =
+            incoming.getSide() == OrderSide.SELL ? incoming : resting;
         User buyer = buyOrder.getUser();
         User seller = sellOrder.getUser();
 
@@ -236,9 +274,9 @@ public class OrderService {
         if (buyer.getId().equals(seller.getId())) {
             throw new IllegalStateException(
                 "self-trade detected between orders " +
-                buyOrder.getId() +
-                " and " +
-                sellOrder.getId()
+                    buyOrder.getId() +
+                    " and " +
+                    sellOrder.getId()
             );
         }
 
@@ -306,7 +344,11 @@ public class OrderService {
     }
 
     /** Pre-walk the asks to size a market buy's reservation, capped at available coins. */
-    private long estimateMarketBuyCost(User actor, Fighter fighter, long wantQty) {
+    private long estimateMarketBuyCost(
+        User actor,
+        Fighter fighter,
+        long wantQty
+    ) {
         long available = actor.getAvailableCoins();
         long remaining = wantQty;
         long cost = 0;
@@ -381,6 +423,7 @@ public class OrderService {
             );
         }
         order.setStatus(OrderStatus.CANCELLED);
+        publishRealtime(actor, order.getFighter());
         return OrderDto.from(order);
     }
 
@@ -483,6 +526,7 @@ public class OrderService {
                     "fighter not found: " + fighterId
                 )
             );
+        // Only ACTIVE fighters can be traded.
         if (fighter.getStatus() != Status.ACTIVE) {
             throw new ResponseStatusException(
                 HttpStatus.CONFLICT,

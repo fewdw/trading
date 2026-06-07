@@ -1,18 +1,20 @@
 package com.ufc.server.auth;
 
+import com.ufc.server.dto.ForgotPasswordDTO;
+import com.ufc.server.dto.LoginDTO;
+import com.ufc.server.dto.ResendVerificationDTO;
+import com.ufc.server.dto.ResetPasswordDTO;
+import com.ufc.server.dto.SignupDTO;
+import com.ufc.server.dto.VerifyEmailDTO;
 import com.ufc.server.user.User;
-import com.ufc.server.user.UserRepository;
-import java.security.SecureRandom;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Base64;
+import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,91 +22,86 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Slf4j
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    private static final SecureRandom RANDOM = new SecureRandom();
-    private static final String TREASURY_USERNAME = "__TREASURY__";
-
-    private final UserRepository userRepository;
-    private final SessionRepository sessionRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final AuthService authService;
     private final CurrentUserService currentUserService;
+    private final SessionRepository sessionRepository;
 
     public AuthController(
-        UserRepository userRepository,
-        SessionRepository sessionRepository,
-        PasswordEncoder passwordEncoder,
-        CurrentUserService currentUserService
+        AuthService authService,
+        CurrentUserService currentUserService,
+        SessionRepository sessionRepository
     ) {
-        this.userRepository = userRepository;
-        this.sessionRepository = sessionRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.authService = authService;
         this.currentUserService = currentUserService;
+        this.sessionRepository = sessionRepository;
     }
 
-    public record Credentials(String username, String password) {}
-
+    /** Create an account (unverified) and email a confirmation link. No session is issued yet. */
     @PostMapping("/signup")
-    public ResponseEntity<?> signup(@RequestBody Credentials body) {
-        if (
-            body == null ||
-            body.username() == null ||
-            body.password() == null ||
-            body.username().isBlank() ||
-            body.password().isBlank()
-        ) {
-            return ResponseEntity.badRequest().body(
-                Map.of("error", "username and password required")
-            );
-        }
-        if (userRepository.existsByUsername(body.username())) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(
-                Map.of("error", "username taken")
-            );
-        }
-        User user = new User();
-        user.setUsername(body.username());
-        user.setPasswordHash(passwordEncoder.encode(body.password()));
-        user = userRepository.save(user);
-        log.info(
-            "New user signed up: {} (id={})",
-            user.getUsername(),
-            user.getId()
+    public ResponseEntity<?> signup(@Valid @RequestBody SignupDTO dto) {
+        authService.signup(dto);
+        return ResponseEntity.ok(
+            Map.of(
+                "message",
+                "Account created. Check your email to confirm your account before logging in."
+            )
         );
-        String token = createSession(user.getId());
-        return ResponseEntity.ok(authResponse(token, user));
+    }
+
+    /** Confirm an email address from the link in the verification email. */
+    @PostMapping("/verify")
+    public ResponseEntity<?> verify(@Valid @RequestBody VerifyEmailDTO dto) {
+        authService.verifyEmail(dto);
+        return ResponseEntity.ok(Map.of("ok", true));
+    }
+
+    /** Resend the verification email. Always succeeds (no account enumeration). */
+    @PostMapping("/resend-verification")
+    public ResponseEntity<?> resendVerification(
+        @Valid @RequestBody ResendVerificationDTO dto
+    ) {
+        authService.resendVerification(dto);
+        return ResponseEntity.ok(
+            Map.of(
+                "message",
+                "If an account exists and is unverified, a new verification link has been sent."
+            )
+        );
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Credentials body) {
-        if (
-            body == null || body.username() == null || body.password() == null
-        ) {
-            return ResponseEntity.badRequest().body(
-                Map.of("error", "username and password required")
-            );
-        }
-        Optional<User> maybeUser = userRepository.findByUsername(
-            body.username()
+    public ResponseEntity<?> login(@Valid @RequestBody LoginDTO dto) {
+        AuthService.LoginResult result = authService.login(dto);
+        return ResponseEntity.ok(
+            authResponse(result.token(), result.user())
         );
-        if (
-            maybeUser.isEmpty() ||
-            !passwordEncoder.matches(
-                body.password(),
-                maybeUser.get().getPasswordHash()
-            ) ||
-            body.username().equals(TREASURY_USERNAME)
-        ) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
-                Map.of("error", "invalid credentials")
-            );
-        }
-        User user = maybeUser.get();
-        String token = createSession(user.getId());
-        return ResponseEntity.ok(authResponse(token, user));
+    }
+
+    /** Start the password-reset flow. Always succeeds (no account enumeration). */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(
+        @Valid @RequestBody ForgotPasswordDTO dto
+    ) {
+        authService.forgotPassword(dto);
+        return ResponseEntity.ok(
+            Map.of(
+                "message",
+                "If an account exists for that email, a password reset link has been sent."
+            )
+        );
+    }
+
+    /** Finish the password-reset flow with the token from the email. */
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(
+        @Valid @RequestBody ResetPasswordDTO dto
+    ) {
+        authService.resetPassword(dto);
+        return ResponseEntity.ok(Map.of("ok", true));
     }
 
     @GetMapping("/me")
@@ -124,6 +121,7 @@ public class AuthController {
         Map<String, Object> body = new HashMap<>();
         body.put("id", user.getId());
         body.put("username", user.getUsername());
+        body.put("email", user.getEmail());
         body.put("available_coins", user.getAvailableCoins());
         body.put("reserved_coins", user.getReservedCoins());
         return ResponseEntity.ok(body);
@@ -143,18 +141,25 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
-    private String createSession(Long userId) {
-        byte[] bytes = new byte[32];
-        RANDOM.nextBytes(bytes);
-        String token = Base64.getUrlEncoder()
-            .withoutPadding()
-            .encodeToString(bytes);
-        Session session = new Session();
-        session.setToken(token);
-        session.setUserId(userId);
-        session.setExpiresAt(Instant.now().plus(7, ChronoUnit.DAYS));
-        sessionRepository.save(session);
-        return token;
+    @ExceptionHandler(AuthException.class)
+    public ResponseEntity<?> handleAuth(AuthException e) {
+        return ResponseEntity.status(e.getStatus()).body(
+            Map.of("error", e.getMessage())
+        );
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<?> handleValidation(
+        MethodArgumentNotValidException e
+    ) {
+        String message = e
+            .getBindingResult()
+            .getFieldErrors()
+            .stream()
+            .findFirst()
+            .map(fe -> fe.getDefaultMessage())
+            .orElse("invalid request");
+        return ResponseEntity.badRequest().body(Map.of("error", message));
     }
 
     private Map<String, Object> authResponse(String token, User user) {
@@ -163,6 +168,7 @@ public class AuthController {
         Map<String, Object> userMap = new HashMap<>();
         userMap.put("id", user.getId());
         userMap.put("username", user.getUsername());
+        userMap.put("email", user.getEmail());
         userMap.put("available_coins", user.getAvailableCoins());
         userMap.put("reserved_coins", user.getReservedCoins());
         body.put("user", userMap);

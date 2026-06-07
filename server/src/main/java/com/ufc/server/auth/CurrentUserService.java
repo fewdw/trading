@@ -37,8 +37,12 @@ public class CurrentUserService {
 
     /** The user behind a valid, unexpired session, if any. */
     public Optional<User> resolveUser(String authHeader) {
-        String token = extractToken(authHeader);
-        if (token == null) {
+        return resolveToken(extractToken(authHeader));
+    }
+
+    /** The user behind a raw session token (not a header). Used by the WebSocket handshake. */
+    public Optional<User> resolveToken(String token) {
+        if (token == null || token.isBlank()) {
             return Optional.empty();
         }
         Optional<Session> session = sessionRepository.findById(token);

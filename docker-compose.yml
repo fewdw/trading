@@ -40,6 +40,12 @@ services:
       SPRING_DATASOURCE_USERNAME: app
       SPRING_DATASOURCE_PASSWORD: app
       SCRAPER_URL: ${SCRAPER_URL}
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
+      BREVO_SMTP_LOGIN: ${BREVO_SMTP_LOGIN}
+      BREVO_SMTP_KEY: ${BREVO_SMTP_KEY}
+      # Public URL the browser uses to reach the frontend (for email links).
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      MAIL_FROM: ${MAIL_FROM}
     ports:
       - "8080:8080"
     depends_on:

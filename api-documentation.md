@@ -54,33 +54,60 @@ Every `/api/**` endpoint is rate limited by a token bucket:
 
 ## Authentication — `/api/auth`
 
+Tokens for email confirmation and password reset are single-use, time-limited,
+and stored only as SHA-256 hashes; the raw token lives only in the emailed link.
+
 ### POST `/api/auth/signup`
 
-Create an account and start a session.
+Create an account. It starts **unverified** and a confirmation email is sent —
+**no session is issued** until the email is confirmed.
 
 **Request**
 ```json
-{ "username": "conor", "password": "hunter2" }
+{ "email": "conor@example.com", "username": "conor", "password": "hunter2pw" }
 ```
+
+| Field | Rules |
+|-------|-------|
+| `email` | valid email, unique |
+| `username` | 3–30 chars, unique |
+| `password` | 8–72 chars |
 
 **Response `200 OK`**
 ```json
-{
-  "token": "Hh3k...base64url",
-  "user": {
-    "id": 1,
-    "username": "conor",
-    "available_coins": 100000,
-    "reserved_coins": 0
-  }
-}
+{ "message": "Account created. Check your email to confirm your account before logging in." }
 ```
 
 | Code | When |
 |------|------|
-| `200` | Created, session issued |
-| `400` | `username and password required` (missing/blank) |
-| `409` | `username taken` |
+| `200` | Created; confirmation email sent |
+| `400` | Validation failure (message names the field) |
+| `409` | `username taken` or `email already registered` |
+
+---
+
+### POST `/api/auth/verify`
+
+Confirm an email address using the token from the confirmation email.
+
+**Request** → `{ "token": "<token from the email link>" }`
+
+**Response `200 OK`** → `{ "ok": true }`
+
+| Code | When |
+|------|------|
+| `200` | Email confirmed |
+| `400` | `invalid or expired token` (includes already-used) |
+
+---
+
+### POST `/api/auth/resend-verification`
+
+Resend the confirmation email. Always `200` (no account enumeration).
+
+**Request** → `{ "email": "conor@example.com" }`
+
+**Response `200 OK`** → `{ "message": "If an account exists and is unverified, a new verification link has been sent." }`
 
 ---
 
@@ -88,16 +115,52 @@ Create an account and start a session.
 
 **Request**
 ```json
-{ "username": "conor", "password": "hunter2" }
+{ "username": "conor", "password": "hunter2pw" }
 ```
 
-**Response `200 OK`** — same shape as signup.
+**Response `200 OK`**
+```json
+{
+  "token": "Hh3k...base64url",
+  "user": { "id": 1, "username": "conor", "email": "conor@example.com", "available_coins": 100000, "reserved_coins": 0 }
+}
+```
 
 | Code | When |
 |------|------|
 | `200` | Authenticated, session issued |
-| `400` | `username and password required` |
+| `400` | `username is required` / `password is required` |
 | `401` | `invalid credentials` |
+| `403` | `Please verify your email before logging in.` |
+
+---
+
+### POST `/api/auth/forgot-password`
+
+Begin a password reset. Always `200` (no account enumeration); if the email
+matches an account, a reset link is sent.
+
+**Request** → `{ "email": "conor@example.com" }`
+
+**Response `200 OK`** → `{ "message": "If an account exists for that email, a password reset link has been sent." }`
+
+---
+
+### POST `/api/auth/reset-password`
+
+Finish a password reset. On success **every session for the user is revoked**.
+
+**Request**
+```json
+{ "token": "<token from the reset email>", "newPassword": "my-new-pw" }
+```
+
+**Response `200 OK`** → `{ "ok": true }`
+
+| Code | When |
+|------|------|
+| `200` | Password changed; sessions revoked |
+| `400` | `invalid or expired token`, or password too short |
 
 ---
 
@@ -107,7 +170,7 @@ Current user. **Auth required.**
 
 **Response `200 OK`**
 ```json
-{ "id": 1, "username": "conor", "available_coins": 98500, "reserved_coins": 1500 }
+{ "id": 1, "username": "conor", "email": "conor@example.com", "available_coins": 98500, "reserved_coins": 1500 }
 ```
 
 | Code | When |
@@ -138,7 +201,7 @@ List fighters. Optional `?status=` filter.
 
 | Param | Type | Notes |
 |-------|------|-------|
-| `status` | string | One of `UNLISTED`, `IPO`, `ACTIVE`, `DELISTING_PENDING`, `LIQUIDATED`. Omit for all. |
+| `status` | string | One of `UNLISTED`, `ACTIVE`, `DELISTING_PENDING`, `LIQUIDATED`. Omit for all. |
 
 **Response `200 OK`**
 ```json
@@ -397,12 +460,79 @@ Coin balances only. (Same numbers as `GET /api/auth/me`, different shape.)
 
 ---
 
+## Admin — `/api/admin`
+
+Not user-authenticated. The caller must present a shared secret in the
+**`X-Admin-Api-Key`** header matching the server's `ADMIN_API_KEY`. The
+comparison is constant-time and **fails closed** — if no key is configured on the
+server, every admin request is rejected with `503`.
+
+### POST `/api/admin/coins`
+
+Credit a user with coins. On success it also pushes a live `BALANCE_UPDATE` over
+the WebSocket (see below) to that user's open tabs.
+
+**Headers:** `X-Admin-Api-Key: <secret>`
+
+**Request**
+```json
+{ "username": "conor", "amount": 500 }
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `username` | string | Recipient; must exist |
+| `amount` | integer | Whole coins (positive). Stored as `amount × 100` sub-units. |
+
+**Response `200 OK`** — empty body.
+
+| Code | When |
+|------|------|
+| `200` | Coins credited |
+| `400` | Validation failure (blank username / non-positive amount) |
+| `401` | Missing/invalid `X-Admin-Api-Key` |
+| `404` | `User not found` |
+| `503` | `admin api key not configured` (server has no `ADMIN_API_KEY`) |
+
+---
+
+## Live updates — WebSocket `/ws`
+
+Not under `/api`, so it is **not** rate limited. Connect to `ws://<host>:8080/ws`.
+
+**Auth:** the handshake is authenticated by the httpOnly `session` cookie, sent
+automatically by the browser (a `?token=<sessionToken>` query param is also
+accepted for non-browser clients). Sockets that don't resolve to a logged-in
+user are closed immediately with `1008` (policy violation).
+
+**Messages (server → client):** JSON text frames. Switch on `type` and ignore
+unknown types. All amounts are in sub-units.
+
+```json
+{ "type": "BALANCE_UPDATE", "availableCoins": 99000, "reservedCoins": 1500 }
+```
+Sent to a specific user when their balance changes — an admin coin grant, or
+after they place/cancel an order. Matches the numbers from `/api/auth/me`.
+
+```json
+{ "type": "MARKET_UPDATE", "fighterId": 1, "lastPrice": 100 }
+```
+Broadcast to all connected clients when a fighter's order book or price changes
+(any order placed, cancelled, or filled). Clients viewing that fighter should
+refetch the book/trades. All events fire **after** the DB transaction commits.
+
+---
+
 ## Quick reference
 
 | Method | Path | Auth | Purpose |
 |--------|------|:----:|---------|
-| POST | `/api/auth/signup` | – | Create account |
-| POST | `/api/auth/login` | – | Log in |
+| POST | `/api/auth/signup` | – | Create account (sends confirmation email) |
+| POST | `/api/auth/verify` | – | Confirm email |
+| POST | `/api/auth/resend-verification` | – | Resend confirmation email |
+| POST | `/api/auth/login` | – | Log in (requires verified email) |
+| POST | `/api/auth/forgot-password` | – | Request a password reset email |
+| POST | `/api/auth/reset-password` | – | Set a new password from reset token |
 | GET | `/api/auth/me` | ✓ | Current user |
 | POST | `/api/auth/logout` | ✓ | End session |
 | GET | `/api/fighters` | – | List fighters |
@@ -416,6 +546,8 @@ Coin balances only. (Same numbers as `GET /api/auth/me`, different shape.)
 | GET | `/api/portfolio` | ✓ | Holdings + P&L |
 | GET | `/api/portfolio/summary` | ✓ | Net worth |
 | GET | `/api/wallet` | ✓ | Coin balances |
+| POST | `/api/admin/coins` | API key | Credit a user with coins |
+| WS | `/ws` | cookie | Live balance updates |
 
 ## Example: a full trade flow
 

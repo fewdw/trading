@@ -4,9 +4,9 @@ import com.ufc.server.holding.Holding;
 import com.ufc.server.holding.HoldingRepository;
 import com.ufc.server.order.Order;
 import com.ufc.server.order.OrderRepository;
+import com.ufc.server.order.OrderSide;
 import com.ufc.server.order.OrderStatus;
 import com.ufc.server.order.OrderType;
-import com.ufc.server.order.Side;
 import com.ufc.server.ranking.Fighter;
 import com.ufc.server.ranking.FighterRepository;
 import com.ufc.server.ranking.Status;
@@ -65,16 +65,13 @@ public class UserService {
             Order ipoOrder = new Order();
             ipoOrder.setUser(treasury);
             ipoOrder.setFighter(fighter);
-            ipoOrder.setSide(Side.SELL);
+            ipoOrder.setSide(OrderSide.SELL);
             ipoOrder.setType(OrderType.LIMIT);
             ipoOrder.setLimitPrice(IPO_PRICE);
             ipoOrder.setQuantity(IPO_SHARES);
             ipoOrder.setFilledQuantity(0);
             ipoOrder.setStatus(OrderStatus.OPEN);
             orderRepository.save(ipoOrder);
-
-            // 3. Mark as listed so this sweep skips it next time.
-            fighter.setStatus(Status.ACTIVE);
         }
         // The fighters are managed entities inside this transaction, so the
         // status change is flushed automatically on commit — no save() needed.

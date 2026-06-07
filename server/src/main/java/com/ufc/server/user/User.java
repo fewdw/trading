@@ -9,6 +9,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 
 @Entity
 @Table(name = "users")
@@ -28,13 +29,12 @@ public class User {
     @Column(nullable = false)
     private String passwordHash;
 
-    @Column(
-        nullable = false,
-        columnDefinition = "integer not null default 1000"
-    )
+    @Column(nullable = false, columnDefinition = "integer")
+    @ColumnDefault("1000")
     private long availableCoins = STARTING_COINS;
 
-    @Column(nullable = false, columnDefinition = "integer not null default 0")
+    @Column(nullable = false, columnDefinition = "integer")
+    @ColumnDefault("0")
     private long reservedCoins = 0;
 
     @Version

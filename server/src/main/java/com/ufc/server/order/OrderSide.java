@@ -1,6 +1,6 @@
 package com.ufc.server.order;
 
-public enum Side {
+public enum OrderSide {
     BUY,
     SELL,
 }

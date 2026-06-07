@@ -94,8 +94,8 @@ public class PopulateFightersTask {
                 fighter.setName(name);
                 fighter.setPhoto(f.photo());
                 fighter.setStatus(Status.IPO);
+                fighter.setLastPrice(100);
                 fighterRepository.save(fighter);
-
                 log.info("adding fighter: {}", name);
                 if (fighter.getPhoto() == null) {
                     log.warn("missing photo for fighter: {}", name);

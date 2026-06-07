@@ -48,7 +48,7 @@ public class Order {
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
-    private Side side;
+    private OrderSide side;
 
     @Column(name = "order_type", nullable = false)
     @Enumerated(EnumType.STRING)

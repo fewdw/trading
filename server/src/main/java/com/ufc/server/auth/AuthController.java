@@ -26,19 +26,23 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final String TREASURY_USERNAME = "__TREASURY__";
 
     private final UserRepository userRepository;
     private final SessionRepository sessionRepository;
     private final PasswordEncoder passwordEncoder;
+    private final CurrentUserService currentUserService;
 
     public AuthController(
         UserRepository userRepository,
         SessionRepository sessionRepository,
-        PasswordEncoder passwordEncoder
+        PasswordEncoder passwordEncoder,
+        CurrentUserService currentUserService
     ) {
         this.userRepository = userRepository;
         this.sessionRepository = sessionRepository;
         this.passwordEncoder = passwordEncoder;
+        this.currentUserService = currentUserService;
     }
 
     public record Credentials(String username, String password) {}
@@ -91,7 +95,8 @@ public class AuthController {
             !passwordEncoder.matches(
                 body.password(),
                 maybeUser.get().getPasswordHash()
-            )
+            ) ||
+            body.username().equals(TREASURY_USERNAME)
         ) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
                 Map.of("error", "invalid credentials")
@@ -109,7 +114,7 @@ public class AuthController {
             required = false
         ) String authHeader
     ) {
-        Optional<User> maybeUser = resolveUser(authHeader);
+        Optional<User> maybeUser = currentUserService.resolveUser(authHeader);
         if (maybeUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
                 Map.of("error", "unauthorized")
@@ -131,33 +136,11 @@ public class AuthController {
             required = false
         ) String authHeader
     ) {
-        String token = extractToken(authHeader);
+        String token = currentUserService.extractToken(authHeader);
         if (token != null) {
             sessionRepository.deleteById(token);
         }
         return ResponseEntity.ok(Map.of("ok", true));
-    }
-
-    private Optional<User> resolveUser(String authHeader) {
-        String token = extractToken(authHeader);
-        if (token == null) {
-            return Optional.empty();
-        }
-        Optional<Session> session = sessionRepository.findById(token);
-        if (
-            session.isEmpty() ||
-            session.get().getExpiresAt().isBefore(Instant.now())
-        ) {
-            return Optional.empty();
-        }
-        return userRepository.findById(session.get().getUserId());
-    }
-
-    private String extractToken(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return null;
-        }
-        return authHeader.substring("Bearer ".length()).trim();
     }
 
     private String createSession(Long userId) {

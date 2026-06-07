@@ -17,7 +17,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findByFighterAndSideAndStatusInOrderByLimitPriceAscCreatedAtAsc(
         Fighter fighter,
-        Side side,
+        OrderSide side,
         Collection<OrderStatus> statuses
     );
 
@@ -25,7 +25,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         Order
     > findByFighterAndSideAndStatusInOrderByLimitPriceDescCreatedAtAsc(
         Fighter fighter,
-        Side side,
+        OrderSide side,
         Collection<OrderStatus> statuses
     );
 
@@ -35,7 +35,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     default List<Order> findOpenAsks(Fighter fighter) {
         return findByFighterAndSideAndStatusInOrderByLimitPriceAscCreatedAtAsc(
             fighter,
-            Side.SELL,
+            OrderSide.SELL,
             OPEN_STATUSES
         );
     }
@@ -44,7 +44,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     default List<Order> findOpenBids(Fighter fighter) {
         return findByFighterAndSideAndStatusInOrderByLimitPriceDescCreatedAtAsc(
             fighter,
-            Side.BUY,
+            OrderSide.BUY,
             OPEN_STATUSES
         );
     }

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 
 const BACKEND_URL = process.env.BACKEND_URL;
 const SESSION_COOKIE = "session";
+export const THEME_COOKIE = "theme";
 
 export type AuthUser = {
   id: number;
@@ -10,6 +11,7 @@ export type AuthUser = {
   email: string;
   availableCoins: number;
   reservedCoins: number;
+  darkMode: boolean;
 };
 
 type RawUser = {
@@ -18,6 +20,7 @@ type RawUser = {
   email?: string;
   available_coins: number;
   reserved_coins: number;
+  dark_mode?: boolean;
 };
 
 function toAuthUser(raw: RawUser): AuthUser {
@@ -27,7 +30,18 @@ function toAuthUser(raw: RawUser): AuthUser {
     email: raw.email ?? "",
     availableCoins: raw.available_coins,
     reservedCoins: raw.reserved_coins,
+    darkMode: raw.dark_mode ?? false,
   };
+}
+
+/** The `theme` cookie is the SSR-readable, no-flash cache of the user's choice. */
+export async function setThemeCookie(dark: boolean) {
+  const store = await cookies();
+  store.set(THEME_COOKIE, dark ? "dark" : "light", {
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
 }
 
 type ApiResult<T> =

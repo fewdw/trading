@@ -122,7 +122,7 @@ Resend the confirmation email. Always `200` (no account enumeration).
 ```json
 {
   "token": "Hh3k...base64url",
-  "user": { "id": 1, "username": "conor", "email": "conor@example.com", "available_coins": 100000, "reserved_coins": 0 }
+  "user": { "id": 1, "username": "conor", "email": "conor@example.com", "available_coins": 100000, "reserved_coins": 0, "dark_mode": false }
 }
 ```
 
@@ -170,7 +170,7 @@ Current user. **Auth required.**
 
 **Response `200 OK`**
 ```json
-{ "id": 1, "username": "conor", "email": "conor@example.com", "available_coins": 98500, "reserved_coins": 1500 }
+{ "id": 1, "username": "conor", "email": "conor@example.com", "available_coins": 98500, "reserved_coins": 1500, "dark_mode": false }
 ```
 
 | Code | When |
@@ -266,6 +266,82 @@ Recent trade tape (latest 50, newest first).
 |------|------|
 | `200` | OK |
 | `404` | Fighter not found |
+
+---
+
+## Profiles — `/api/users` (public, no auth)
+
+### GET `/api/users/{username}/profile`
+
+A user's public profile: holdings marked to market, realized/unrealized P&L, the
+executed trade tape, and the full order history. `realizedPnl` is computed by
+replaying the user's trades with average-cost accounting (the same basis
+holdings use). All amounts are in sub-units.
+
+**Response `200 OK`**
+```json
+{
+  "username": "conor",
+  "realizedPnl": 1200,
+  "unrealizedPnl": -300,
+  "holdingsValue": 4500,
+  "nextPayoutAt": "2026-06-15T06:00:00Z",
+  "payoutAmount": 50000,
+  "holdings": [
+    {
+      "fighterId": 1,
+      "fighterName": "Jon Jones",
+      "photo": "https://...",
+      "quantity": 30,
+      "reservedQuantity": 0,
+      "averagePrice": 140,
+      "lastPrice": 150,
+      "marketValue": 4500,
+      "unrealizedPnl": 300
+    }
+  ],
+  "trades": [
+    {
+      "fighterId": 1,
+      "fighterName": "Jon Jones",
+      "side": "BUY",
+      "price": 140,
+      "quantity": 30,
+      "executedAt": "2026-06-07T12:34:56.789Z"
+    }
+  ],
+  "orders": [
+    {
+      "id": 42,
+      "fighterId": 1,
+      "fighterName": "Jon Jones",
+      "side": "SELL",
+      "type": "LIMIT",
+      "limitPrice": 160,
+      "quantity": 10,
+      "filledQuantity": 0,
+      "status": "CANCELLED",
+      "createdAt": "2026-06-07T12:40:00.000Z"
+    }
+  ]
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `holdings` | Open positions (quantity > 0), each an `/api/portfolio` position object |
+| `trades` | Executed fills from the user's perspective, **newest first**, capped at 100 |
+| `orders` | The user's orders across **every** status (`OPEN`, `PARTIAL`, `FILLED`, `CANCELLED`) — so pending and cancelled buys and sells are included — newest first, capped at 100. Same shape as an `OrderDto`. |
+| `nextPayoutAt` | When the next recurring salary is paid to **all** users (ISO-8601 UTC), computed from the payout schedule. `null` if no schedule is configured. |
+| `payoutAmount` | Salary paid each payout, in sub-units (e.g. `50000` = 500 coins). |
+
+Profiles are public, so the `orders` list exposes a user's open and cancelled
+orders. The internal treasury account has no public profile.
+
+| Code | When |
+|------|------|
+| `200` | OK |
+| `404` | `user not found` (unknown username, or the treasury account) |
 
 ---
 
@@ -460,6 +536,34 @@ Coin balances only. (Same numbers as `GET /api/auth/me`, different shape.)
 
 ---
 
+## Preferences — `/api/preferences` (auth required)
+
+The current user's UI preferences. Currently just dark mode. The client also
+caches this locally (a `theme` cookie + `localStorage`) so the choice applies
+before first paint; this endpoint is the cross-device source of truth.
+
+### GET `/api/preferences`
+
+**Response `200 OK`** → `{ "darkMode": false }`
+
+| Code | When |
+|------|------|
+| `200` | OK |
+| `401` | Not authenticated |
+
+### PUT `/api/preferences`
+
+**Request** → `{ "darkMode": true }`
+
+**Response `200 OK`** → the saved preferences, e.g. `{ "darkMode": true }`
+
+| Code | When |
+|------|------|
+| `200` | Saved |
+| `401` | Not authenticated |
+
+---
+
 ## Admin — `/api/admin`
 
 Not user-authenticated. The caller must present a shared secret in the
@@ -539,6 +643,7 @@ refetch the book/trades. All events fire **after** the DB transaction commits.
 | GET | `/api/fighters/{id}` | – | Fighter detail |
 | GET | `/api/fighters/{id}/orderbook` | – | Aggregated book |
 | GET | `/api/fighters/{id}/trades` | – | Recent trades |
+| GET | `/api/users/{username}/profile` | – | Public profile (holdings, P&L, trades, orders) |
 | POST | `/api/orders` | ✓ | Place buy/sell order |
 | DELETE | `/api/orders/{id}` | ✓ | Cancel order |
 | GET | `/api/orders` | ✓ | List your orders |
@@ -546,26 +651,39 @@ refetch the book/trades. All events fire **after** the DB transaction commits.
 | GET | `/api/portfolio` | ✓ | Holdings + P&L |
 | GET | `/api/portfolio/summary` | ✓ | Net worth |
 | GET | `/api/wallet` | ✓ | Coin balances |
+| GET | `/api/preferences` | ✓ | Read UI preferences (dark mode) |
+| PUT | `/api/preferences` | ✓ | Update UI preferences (dark mode) |
 | POST | `/api/admin/coins` | API key | Credit a user with coins |
 | WS | `/ws` | cookie | Live balance updates |
 
 ## Example: a full trade flow
 
 ```bash
-# 1. sign up, capture the token
-TOKEN=$(curl -s -X POST localhost:8080/api/auth/signup \
+# 1. sign up. This sends a confirmation email and does NOT return a token —
+#    the account must confirm its email before it can log in.
+curl -s -X POST localhost:8080/api/auth/signup \
   -H 'Content-Type: application/json' \
-  -d '{"username":"conor","password":"hunter2"}' | jq -r .token)
+  -d '{"email":"conor@example.com","username":"conor","password":"hunter2pw"}'
 
-# 2. browse the market
+# 2. confirm the email using the token from the link, then log in for a token
+curl -s -X POST localhost:8080/api/auth/verify \
+  -H 'Content-Type: application/json' \
+  -d '{"token":"<token from the confirmation email>"}'
+
+TOKEN=$(curl -s -X POST localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"conor","password":"hunter2pw"}' | jq -r .token)
+
+# 3. browse the market
 curl -s localhost:8080/api/fighters
 
-# 3. place a limit buy for 10 shares of fighter 1 at 1.50 coins
+# 4. place a limit buy for 10 shares of fighter 1 at 1.50 coins
 curl -s -X POST localhost:8080/api/orders \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"fighterId":"1","side":"BUY","type":"LIMIT","limitPrice":150,"quantity":10}'
 
-# 4. check your positions and net worth
+# 5. check your positions, net worth, and public profile
 curl -s localhost:8080/api/portfolio        -H "Authorization: Bearer $TOKEN"
 curl -s localhost:8080/api/portfolio/summary -H "Authorization: Bearer $TOKEN"
+curl -s localhost:8080/api/users/conor/profile
 ```

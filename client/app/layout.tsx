@@ -25,6 +25,11 @@ export const metadata: Metadata = {
 // isn't running during the Docker image build).
 export const dynamic = "force-dynamic";
 
+// Applies the saved theme to <html> before first paint to avoid a flash:
+// localStorage (set by the toggle) -> the `theme` cookie (set on login from the
+// user's saved preference) -> the OS preference. Runs synchronously in <head>.
+const THEME_SCRIPT = `(function(){try{var d=document.documentElement,t=null;try{t=localStorage.getItem('theme')}catch(e){}if(!t){var m=document.cookie.match(/(?:^|;\\s*)theme=(dark|light)/);if(m)t=m[1]}if(!t){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}d.classList.toggle('dark',t==='dark')}catch(e){}})();`;
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -35,8 +40,12 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col">
         <Navbar />
         <CommandSearch fighters={fighters} />

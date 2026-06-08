@@ -13,6 +13,7 @@ import OrderBook from "../../components/OrderBook";
 import PriceChart from "../../components/PriceChart";
 import PlaceOrderForm from "../../components/PlaceOrderForm";
 import FighterLiveRefresh from "../../components/FighterLiveRefresh";
+import OrderStatusBadge from "../../components/OrderStatusBadge";
 import { cancelOrderAction } from "../../actions/orders";
 
 export default async function FighterPage({
@@ -30,13 +31,14 @@ export default async function FighterPage({
     getCurrentUser(),
   ]);
 
-  const openOrders = user
-    ? (await getMyOrders()).filter(
-        (o) =>
-          o.fighterId === fighter.id &&
-          (o.status === "OPEN" || o.status === "PARTIAL"),
-      )
+  // All of the logged-in user's orders for this fighter (every status), used
+  // both for the "My trades" tape and the "Your open orders" panel below.
+  const myOrders = user
+    ? (await getMyOrders()).filter((o) => o.fighterId === fighter.id)
     : [];
+  const openOrders = myOrders.filter(
+    (o) => o.status === "OPEN" || o.status === "PARTIAL",
+  );
 
   const position = user
     ? ((await getMyPortfolio()).find((p) => p.fighterId === fighter.id) ?? null)
@@ -117,6 +119,54 @@ export default async function FighterPage({
                 ))}
               </ul>
             )}
+
+            {user && (
+              <div className="mt-4">
+                <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
+                  My trades
+                </h3>
+                {myOrders.length === 0 ? (
+                  <p className="text-sm text-zinc-400">
+                    You haven&apos;t placed any orders for this fighter.
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-1 text-sm">
+                    {myOrders.map((o) => (
+                      <li
+                        key={o.id}
+                        className="flex items-center justify-between gap-3"
+                      >
+                        <span>
+                          <span
+                            className={
+                              o.side === "BUY"
+                                ? "text-green-600 dark:text-green-400"
+                                : "text-red-600 dark:text-red-400"
+                            }
+                          >
+                            {o.side}
+                          </span>{" "}
+                          <span className="font-mono">
+                            {o.filledQuantity}/{o.quantity}
+                          </span>
+                          <span className="font-mono text-zinc-500">
+                            {o.limitPrice !== null
+                              ? ` @ ${formatCoins(o.limitPrice)}`
+                              : " @ market"}
+                          </span>
+                        </span>
+                        <span className="flex items-center gap-2">
+                          <OrderStatusBadge status={o.status} />
+                          <span className="font-mono text-xs text-zinc-400">
+                            {new Date(o.createdAt).toLocaleTimeString()}
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </section>
         </div>
 
@@ -127,7 +177,11 @@ export default async function FighterPage({
             </h2>
             {user ? (
               fighter.status === "ACTIVE" ? (
-                <PlaceOrderForm fighterId={fighter.id} slug={slug} />
+                <PlaceOrderForm
+                  fighterId={fighter.id}
+                  slug={slug}
+                  asks={book.asks}
+                />
               ) : (
                 <p className="text-sm text-zinc-500">
                   This fighter isn&apos;t tradable yet (status {fighter.status}).

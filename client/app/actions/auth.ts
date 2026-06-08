@@ -10,6 +10,7 @@ import {
   resendVerificationRequest,
   resetPasswordRequest,
   setSessionCookie,
+  setThemeCookie,
   signupRequest,
   verifyEmailRequest,
 } from "../lib/auth";
@@ -65,6 +66,8 @@ export async function loginAction(
   const result = await loginRequest(username, password);
   if (!result.ok) return { error: result.error, values: { username } };
   await setSessionCookie(result.token);
+  // Carry their saved theme into the SSR cookie so it applies right away.
+  await setThemeCookie(result.user.darkMode);
   redirect("/");
 }
 

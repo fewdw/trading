@@ -44,6 +44,11 @@ public class User {
     @ColumnDefault("0")
     private long reservedCoins = 0;
 
+    /** UI preference: dark mode on/off. Synced to the client for cross-device persistence. */
+    @Column(nullable = false)
+    @ColumnDefault("false")
+    private boolean darkMode = false;
+
     @Version
     private long version;
 }

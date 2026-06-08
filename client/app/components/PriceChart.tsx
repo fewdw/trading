@@ -128,14 +128,11 @@ export default function PriceChart({ trades }: { trades: Trade[] }) {
     chart.timeScale().fitContent();
   }, [points]);
 
-  if (points.length === 0) {
-    return (
-      <div className="flex h-64 items-center justify-center rounded-lg border border-dashed border-zinc-300 text-sm text-zinc-500 dark:border-zinc-700">
-        No trades yet — the chart appears after the first trade.
-      </div>
-    );
-  }
-
+  // The chart container must stay mounted even with no data: it's what the
+  // "create chart once" effect binds to. If we returned an empty-state element
+  // instead, the chart would never get created, and a live refresh after the
+  // first trade (a re-render, not a remount) wouldn't draw it — only a full
+  // page reload would. So we keep the container and overlay the empty state.
   return (
     <div>
       {stats && (
@@ -158,6 +155,11 @@ export default function PriceChart({ trades }: { trades: Trade[] }) {
       )}
       <div className="relative">
         <div ref={containerRef} className="h-64 w-full" />
+        {points.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center rounded-lg border border-dashed border-zinc-300 text-sm text-zinc-500 dark:border-zinc-700">
+            No trades yet — the chart appears after the first trade.
+          </div>
+        )}
         {tip && (
           <div
             className="pointer-events-none absolute z-10 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs shadow dark:border-zinc-700 dark:bg-zinc-900"

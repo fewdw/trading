@@ -36,8 +36,11 @@ export type ProfileData = {
   realizedPnl: number;
   unrealizedPnl: number;
   holdingsValue: number;
+  nextPayoutAt: string | null;
+  payoutAmount: number;
   holdings: Position[];
   trades: UserTrade[];
+  orders: Order[];
 };
 
 export type Order = {

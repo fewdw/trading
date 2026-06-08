@@ -7,14 +7,24 @@ import SearchBar from "./SearchBar";
 export default async function Navbar() {
   const user = await getCurrentUser();
   return (
-    <nav className="flex items-center gap-4 border-b border-zinc-200 bg-white px-6 py-3 dark:border-zinc-800 dark:bg-zinc-950">
-      <Link href="/" className="shrink-0 font-semibold tracking-tight">
-        App
-      </Link>
-      <div className="flex flex-1 justify-center">
+    // Three equal columns keep the search bar at the true centre of the page,
+    // regardless of how wide the logo (left) or account controls (right) are.
+    <nav className="grid grid-cols-3 items-center gap-4 border-b border-zinc-200 bg-white px-6 py-3 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="flex min-w-0 items-center gap-4">
+        <Link href="/" className="shrink-0 font-semibold tracking-tight">
+          App
+        </Link>
+        <Link
+          href="/about"
+          className="shrink-0 text-sm text-zinc-500 hover:underline"
+        >
+          About
+        </Link>
+      </div>
+      <div className="flex justify-center">
         <SearchBar />
       </div>
-      <div className="flex shrink-0 items-center gap-4 text-sm">
+      <div className="flex min-w-0 shrink-0 items-center justify-end gap-4 text-sm">
         {user ? (
           <>
             <CoinBalance

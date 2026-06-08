@@ -124,6 +124,7 @@ public class AuthController {
         body.put("email", user.getEmail());
         body.put("available_coins", user.getAvailableCoins());
         body.put("reserved_coins", user.getReservedCoins());
+        body.put("dark_mode", user.isDarkMode());
         return ResponseEntity.ok(body);
     }
 
@@ -171,6 +172,7 @@ public class AuthController {
         userMap.put("email", user.getEmail());
         userMap.put("available_coins", user.getAvailableCoins());
         userMap.put("reserved_coins", user.getReservedCoins());
+        userMap.put("dark_mode", user.isDarkMode());
         body.put("user", userMap);
         return body;
     }

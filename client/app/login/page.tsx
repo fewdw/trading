@@ -1,12 +1,17 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import AuthForm from "../components/AuthForm";
 import { loginAction } from "../actions/auth";
+import { getCurrentUser } from "../lib/auth";
 
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ verified?: string; reset?: string }>;
 }) {
+  // Already logged in? There's nothing to do here.
+  if (await getCurrentUser()) redirect("/");
+
   const sp = await searchParams;
   const notice = sp.verified
     ? "Your email is confirmed — you can now log in."

@@ -17,8 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class SalaryTask {
 
-    // 500 coins
-    private static final long SALARY = 500 * 100L;
+    // The amount lives in SalaryService so the "next payout" shown to users
+    // always matches what's actually paid here.
+    private static final long SALARY = SalaryService.SALARY;
 
     private final UserRepository userRepository;
 

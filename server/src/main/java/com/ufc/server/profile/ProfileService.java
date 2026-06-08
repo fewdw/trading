@@ -1,12 +1,16 @@
 package com.ufc.server.profile;
 
+import com.ufc.server.dto.OrderDto;
 import com.ufc.server.dto.PositionDto;
 import com.ufc.server.dto.ProfileDto;
 import com.ufc.server.dto.UserTradeDto;
 import com.ufc.server.holding.Holding;
 import com.ufc.server.holding.HoldingRepository;
+import com.ufc.server.order.Order;
+import com.ufc.server.order.OrderRepository;
 import com.ufc.server.order.OrderSide;
 import com.ufc.server.ranking.Fighter;
+import com.ufc.server.tasks.SalaryService;
 import com.ufc.server.tasks.TreasurySeederTask;
 import com.ufc.server.trade.Trade;
 import com.ufc.server.trade.TradeRepository;
@@ -14,6 +18,7 @@ import com.ufc.server.user.User;
 import com.ufc.server.user.UserRepository;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,15 +36,21 @@ public class ProfileService {
     private final UserRepository userRepository;
     private final HoldingRepository holdingRepository;
     private final TradeRepository tradeRepository;
+    private final OrderRepository orderRepository;
+    private final SalaryService salaryService;
 
     public ProfileService(
         UserRepository userRepository,
         HoldingRepository holdingRepository,
-        TradeRepository tradeRepository
+        TradeRepository tradeRepository,
+        OrderRepository orderRepository,
+        SalaryService salaryService
     ) {
         this.userRepository = userRepository;
         this.holdingRepository = holdingRepository;
         this.tradeRepository = tradeRepository;
+        this.orderRepository = orderRepository;
+        this.salaryService = salaryService;
     }
 
     @Transactional(readOnly = true)
@@ -76,9 +87,27 @@ public class ProfileService {
             realizedPnl,
             unrealizedPnl,
             holdingsValue,
+            salaryService.nextPayoutAt(),
+            salaryService.salaryAmount(),
             holdings,
-            history(user, trades)
+            history(user, trades),
+            orders(user)
         );
+    }
+
+    /**
+     * The user's order history newest-first, capped at {@link #MAX_HISTORY}.
+     * Every status is included so pending (OPEN/PARTIAL) and CANCELLED buys and
+     * sells show up next to filled ones.
+     */
+    private List<OrderDto> orders(User user) {
+        return orderRepository
+            .findByUser(user)
+            .stream()
+            .sorted(Comparator.comparing(Order::getCreatedAt).reversed())
+            .limit(MAX_HISTORY)
+            .map(OrderDto::from)
+            .toList();
     }
 
     /**

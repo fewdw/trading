@@ -61,7 +61,9 @@ public class UserService {
             .map(h -> h.getFighter().getId())
             .collect(Collectors.toSet());
 
-        for (Fighter fighter : fighterRepository.findAllByStatus(Status.ACTIVE)) {
+        for (Fighter fighter : fighterRepository.findAllByStatus(
+            Status.ACTIVE
+        )) {
             if (alreadySeeded.contains(fighter.getId())) {
                 continue;
             }

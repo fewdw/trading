@@ -14,7 +14,14 @@ import {
   verifyEmailRequest,
 } from "../lib/auth";
 
-export type FormState = { error?: string; success?: string } | undefined;
+export type FormState =
+  | {
+      error?: string;
+      success?: string;
+      // Echoed back on failure so the form can re-fill (never the password).
+      values?: { username?: string; email?: string };
+    }
+  | undefined;
 
 export async function signupAction(
   _prev: FormState,
@@ -31,10 +38,12 @@ export async function signupAction(
     password,
     confirmPassword: confirm,
   });
-  if (validationError) return { error: validationError };
+  if (validationError) {
+    return { error: validationError, values: { email, username } };
+  }
 
   const result = await signupRequest(email, username, password);
-  if (!result.ok) return { error: result.error };
+  if (!result.ok) return { error: result.error, values: { email, username } };
   return {
     success:
       "Account created! Check your email for a confirmation link to activate your account.",
@@ -48,10 +57,13 @@ export async function loginAction(
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   if (!username || !password) {
-    return { error: "Username or email and password are required." };
+    return {
+      error: "Username or email and password are required.",
+      values: { username },
+    };
   }
   const result = await loginRequest(username, password);
-  if (!result.ok) return { error: result.error };
+  if (!result.ok) return { error: result.error, values: { username } };
   await setSessionCookie(result.token);
   redirect("/");
 }

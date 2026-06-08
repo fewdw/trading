@@ -40,7 +40,14 @@ export default function SignupForm() {
       <h1 className="text-xl font-semibold">Sign up</h1>
       <label className="flex flex-col gap-1 text-sm">
         Email
-        <input name="email" type="email" required autoComplete="email" className={input} />
+        <input
+          name="email"
+          type="email"
+          required
+          autoComplete="email"
+          defaultValue={state?.values?.email ?? ""}
+          className={input}
+        />
       </label>
       <label className="flex flex-col gap-1 text-sm">
         Username
@@ -53,6 +60,7 @@ export default function SignupForm() {
           pattern="[A-Za-z0-9_]+"
           title="Letters, numbers, and underscores only"
           autoComplete="username"
+          defaultValue={state?.values?.username ?? ""}
           className={input}
         />
       </label>

@@ -29,9 +29,13 @@ public class BalanceWebSocketHandler extends TextWebSocketHandler {
 
     private final CurrentUserService currentUserService;
 
-    /** userId -> that user's live sockets (one per open tab). */
+    /** userId -> that user's live sockets, for targeted balance pushes. */
     private final ConcurrentHashMap<Long, Set<WebSocketSession>> sessions =
         new ConcurrentHashMap<>();
+
+    /** Every open socket (authenticated or not) for public market broadcasts. */
+    private final Set<WebSocketSession> allSessions =
+        ConcurrentHashMap.newKeySet();
 
     public BalanceWebSocketHandler(CurrentUserService currentUserService) {
         this.currentUserService = currentUserService;
@@ -40,15 +44,16 @@ public class BalanceWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session)
         throws Exception {
+        allSessions.add(session);
         Long userId = resolveUserId(session);
-        if (userId == null) {
-            session.close(CloseStatus.POLICY_VIOLATION);
-            return;
+        if (userId != null) {
+            session.getAttributes().put(USER_ID_ATTR, userId);
+            sessions
+                .computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet())
+                .add(session);
         }
-        session.getAttributes().put(USER_ID_ATTR, userId);
-        sessions
-            .computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet())
-            .add(session);
+        // Anonymous sockets stay connected — they only ever receive public
+        // MARKET_UPDATE broadcasts, never user-specific balance data.
     }
 
     @Override
@@ -56,6 +61,7 @@ public class BalanceWebSocketHandler extends TextWebSocketHandler {
         WebSocketSession session,
         CloseStatus status
     ) {
+        allSessions.remove(session);
         Object userId = session.getAttributes().get(USER_ID_ATTR);
         if (userId instanceof Long id) {
             Set<WebSocketSession> userSessions = sessions.get(id);
@@ -96,7 +102,7 @@ public class BalanceWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    /** Broadcast a market change to every connected client so open pages can refresh. */
+    /** Broadcast a market change to every connected client (incl. logged-out). */
     public void broadcastMarketUpdate(Long fighterId, long lastPrice) {
         TextMessage message = new TextMessage(
             "{\"type\":\"MARKET_UPDATE\",\"fighterId\":" +
@@ -105,17 +111,15 @@ public class BalanceWebSocketHandler extends TextWebSocketHandler {
             lastPrice +
             "}"
         );
-        for (Set<WebSocketSession> userSessions : sessions.values()) {
-            for (WebSocketSession session : userSessions) {
-                try {
-                    synchronized (session) {
-                        if (session.isOpen()) {
-                            session.sendMessage(message);
-                        }
+        for (WebSocketSession session : allSessions) {
+            try {
+                synchronized (session) {
+                    if (session.isOpen()) {
+                        session.sendMessage(message);
                     }
-                } catch (IOException e) {
-                    // Broken pipe etc. — drop it; close handler will clean up.
                 }
+            } catch (IOException e) {
+                // Broken pipe etc. — drop it; close handler will clean up.
             }
         }
     }

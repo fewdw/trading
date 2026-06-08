@@ -10,6 +10,36 @@ export type PriceLevel = { price: number; quantity: number };
 export type Orderbook = { bids: PriceLevel[]; asks: PriceLevel[] };
 export type Trade = { price: number; quantity: number; executedAt: string };
 
+export type Position = {
+  fighterId: number;
+  fighterName: string;
+  photo: string | null;
+  quantity: number;
+  reservedQuantity: number;
+  averagePrice: number;
+  lastPrice: number;
+  marketValue: number;
+  unrealizedPnl: number;
+};
+
+export type UserTrade = {
+  fighterId: number;
+  fighterName: string;
+  side: "BUY" | "SELL";
+  price: number;
+  quantity: number;
+  executedAt: string;
+};
+
+export type ProfileData = {
+  username: string;
+  realizedPnl: number;
+  unrealizedPnl: number;
+  holdingsValue: number;
+  holdings: Position[];
+  trades: UserTrade[];
+};
+
 export type Order = {
   id: number;
   fighterId: number;

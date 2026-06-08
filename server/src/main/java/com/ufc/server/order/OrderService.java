@@ -118,6 +118,18 @@ public class OrderService {
         // 4. Settle whatever did not fill.
         settleRemainder(actor, fighter, order, reserved);
 
+        // A market order that filled nothing means there was nobody to trade
+        // with — surface that instead of returning a silently-cancelled order.
+        // Throwing rolls the transaction back, so no reservation/order lingers.
+        if (type == OrderType.MARKET && order.getFilledQuantity() == 0) {
+            throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                order.getSide() == OrderSide.SELL
+                    ? "No buyers available — there are no open bids to fill your market sell."
+                    : "Couldn't fill your market buy — there are no sellers, or your balance is too low."
+            );
+        }
+
         publishRealtime(actor, fighter);
         return OrderDto.from(order);
     }

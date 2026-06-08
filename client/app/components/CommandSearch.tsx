@@ -23,8 +23,17 @@ export default function CommandSearch({ fighters }: { fighters: Fighter[] }) {
         setOpen(false);
       }
     };
+    // The navbar search bar opens the palette via this event.
+    const onOpen = () => {
+      setQuery("");
+      setOpen(true);
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("command-search:open", onOpen);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("command-search:open", onOpen);
+    };
   }, []);
 
   // Focus the input when the panel opens (DOM sync, not state).
@@ -99,7 +108,7 @@ export default function CommandSearch({ fighters }: { fighters: Fighter[] }) {
                   )}
                   <span className="flex-1 truncate capitalize">{f.name}</span>
                   <span className="font-mono text-xs text-zinc-500">
-                    🪙 {formatCoins(f.lastPrice)}
+                    {formatCoins(f.lastPrice)}
                   </span>
                 </button>
               </li>

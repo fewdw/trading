@@ -64,7 +64,10 @@ export async function placeOrderAction(
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { error: (data as { error?: string }).error ?? "Order rejected." };
+      // Spring's ResponseStatusException puts the real reason in `message`
+      // ("insufficient shares", …) and only "Bad Request" in `error`.
+      const d = data as { message?: string; error?: string };
+      return { error: d.message ?? d.error ?? "Order rejected." };
     }
   } catch {
     return { error: "Could not reach the server." };

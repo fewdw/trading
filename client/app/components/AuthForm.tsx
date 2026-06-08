@@ -27,6 +27,7 @@ export default function AuthForm({ title, submitLabel, action }: Props) {
           type="text"
           required
           autoComplete="username"
+          defaultValue={state?.values?.username ?? ""}
           className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
         />
       </label>

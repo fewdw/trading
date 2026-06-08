@@ -21,8 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     public static final String TREASURY_USERNAME = "__TREASURY__";
-    public static final long SEED_SHARES = 500;
-    public static final long SEED_PRICE = 100; // 1 coin, in sub-units
+    public static final long SEED_SHARES = 1000;
+    public static final long SEED_PRICE = 1250;
 
     private final FighterRepository fighterRepository;
     private final UserRepository userRepository;

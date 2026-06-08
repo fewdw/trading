@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { subscribeLive } from "../lib/ws";
 
 type Props = {
   availableCoins: number;
@@ -17,9 +18,8 @@ function formatCoins(cents: number): string {
 
 /**
  * The coin badge in the navbar. Renders the server-provided balance, then keeps
- * it live over a WebSocket. The socket authenticates with the httpOnly `session`
- * cookie, which the browser sends automatically on the handshake — so the token
- * is never exposed to client JS.
+ * it live over a WebSocket (see `subscribeLive`), which authenticates with the
+ * session token so this user's BALANCE_UPDATE frames are delivered.
  */
 export default function CoinBalance({ availableCoins, reservedCoins }: Props) {
   const [available, setAvailable] = useState(availableCoins);
@@ -40,52 +40,24 @@ export default function CoinBalance({ availableCoins, reservedCoins }: Props) {
     setReserved(reservedCoins);
   }
 
-  useEffect(() => {
-    // Backend listens on the same host, port 8080 (see docker-compose / dev).
-    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${proto}//${window.location.hostname}:8080/ws`;
-
-    let socket: WebSocket | null = null;
-    let stopped = false;
-    let retry: ReturnType<typeof setTimeout> | undefined;
-
-    const connect = () => {
-      socket = new WebSocket(url);
-
-      socket.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data) as {
-            type?: string;
-            availableCoins?: number;
-            reservedCoins?: number;
-          };
-          if (msg.type === "BALANCE_UPDATE") {
-            if (typeof msg.availableCoins === "number") {
-              setAvailable(msg.availableCoins);
-            }
-            if (typeof msg.reservedCoins === "number") {
-              setReserved(msg.reservedCoins);
-            }
-          }
-        } catch {
-          // ignore malformed frames
+  useEffect(
+    () =>
+      subscribeLive((data) => {
+        const msg = data as {
+          type?: string;
+          availableCoins?: number;
+          reservedCoins?: number;
+        };
+        if (msg.type !== "BALANCE_UPDATE") return;
+        if (typeof msg.availableCoins === "number") {
+          setAvailable(msg.availableCoins);
         }
-      };
-
-      // Auto-reconnect with a small backoff if the socket drops.
-      socket.onclose = () => {
-        if (!stopped) retry = setTimeout(connect, 3000);
-      };
-    };
-
-    connect();
-
-    return () => {
-      stopped = true;
-      if (retry) clearTimeout(retry);
-      socket?.close();
-    };
-  }, []);
+        if (typeof msg.reservedCoins === "number") {
+          setReserved(msg.reservedCoins);
+        }
+      }),
+    [],
+  );
 
   return (
     <span

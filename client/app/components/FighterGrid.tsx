@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { Fighter } from "../lib/types";
 import { slugify } from "../lib/slug";
 import { formatCoins } from "../lib/format";
+import { subscribeLive } from "../lib/ws";
 
 const STATUS_STYLES: Record<string, string> = {
   ACTIVE: "bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-400",
@@ -32,54 +33,34 @@ export default function FighterGrid({ fighters }: { fighters: Fighter[] }) {
     setLive(seedFrom(fighters));
   }
 
-  useEffect(() => {
-    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${proto}//${window.location.hostname}:8080/ws`;
-    let socket: WebSocket | null = null;
-    let stopped = false;
-    let retry: ReturnType<typeof setTimeout> | undefined;
-
-    const connect = () => {
-      socket = new WebSocket(url);
-      socket.onmessage = (e) => {
-        try {
-          const msg = JSON.parse(e.data) as {
-            type?: string;
-            fighterId?: number;
-            lastPrice?: number;
-          };
-          if (
-            msg.type === "MARKET_UPDATE" &&
-            typeof msg.fighterId === "number" &&
-            typeof msg.lastPrice === "number"
-          ) {
-            const id = msg.fighterId;
-            const next = msg.lastPrice;
-            setLive((prev) => {
-              const cur = prev[id];
-              if (!cur || cur.price === next) return prev;
-              return {
-                ...prev,
-                [id]: { price: next, dir: next > cur.price ? "up" : "down" },
-              };
-            });
-          }
-        } catch {
-          // ignore malformed frames
+  useEffect(
+    () =>
+      subscribeLive((data) => {
+        const msg = data as {
+          type?: string;
+          fighterId?: number;
+          lastPrice?: number;
+        };
+        if (
+          msg.type !== "MARKET_UPDATE" ||
+          typeof msg.fighterId !== "number" ||
+          typeof msg.lastPrice !== "number"
+        ) {
+          return;
         }
-      };
-      socket.onclose = () => {
-        if (!stopped) retry = setTimeout(connect, 3000);
-      };
-    };
-
-    connect();
-    return () => {
-      stopped = true;
-      if (retry) clearTimeout(retry);
-      socket?.close();
-    };
-  }, []);
+        const id = msg.fighterId;
+        const next = msg.lastPrice;
+        setLive((prev) => {
+          const cur = prev[id];
+          if (!cur || cur.price === next) return prev;
+          return {
+            ...prev,
+            [id]: { price: next, dir: next > cur.price ? "up" : "down" },
+          };
+        });
+      }),
+    [],
+  );
 
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">

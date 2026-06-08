@@ -6,14 +6,8 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      // Account-flow pages have no SEO value (and some carry one-time tokens).
-      disallow: [
-        "/login",
-        "/verify",
-        "/reset-password",
-        "/forgot-password",
-        "/resend-verification",
-      ],
+      // Account-flow pages have no SEO value.
+      disallow: ["/login"],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
     host: SITE_URL,

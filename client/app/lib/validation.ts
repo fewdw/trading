@@ -7,7 +7,6 @@ export const USERNAME_MIN = 3;
 export const USERNAME_MAX = 30;
 export const PASSWORD_MIN = 8;
 export const PASSWORD_MAX = 72;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function validateUsername(username: string): string | null {
   if (username.length < USERNAME_MIN || username.length > USERNAME_MAX) {
@@ -28,15 +27,13 @@ export function validatePassword(password: string): string | null {
 
 /** Full signup check; returns the first error message, or null if all good. */
 export function validateSignup(input: {
-  email: string;
   username: string;
   password: string;
   confirmPassword: string;
 }): string | null {
-  const { email, username, password, confirmPassword } = input;
+  const { username, password, confirmPassword } = input;
 
-  if (!email || !username || !password) return "All fields are required.";
-  if (!EMAIL_PATTERN.test(email)) return "Enter a valid email.";
+  if (!username || !password) return "All fields are required.";
 
   const usernameError = validateUsername(username);
   if (usernameError) return usernameError;
@@ -46,9 +43,6 @@ export function validateSignup(input: {
 
   if (password.toLowerCase() === username.toLowerCase()) {
     return "Password cannot be the same as your username.";
-  }
-  if (password.toLowerCase() === email.toLowerCase()) {
-    return "Password cannot be the same as your email.";
   }
   if (password !== confirmPassword) return "Passwords do not match.";
 

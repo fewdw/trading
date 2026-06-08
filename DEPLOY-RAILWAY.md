@@ -48,11 +48,7 @@ SPRING_DATASOURCE_URL=jdbc:postgresql://${{Postgres.PGHOST}}:${{Postgres.PGPORT}
 SPRING_DATASOURCE_USERNAME=${{Postgres.PGUSER}}
 SPRING_DATASOURCE_PASSWORD=${{Postgres.PGPASSWORD}}
 SCRAPER_URL=http://${{scrape.RAILWAY_PRIVATE_DOMAIN}}:5001
-FRONTEND_URL=https://${{frontend.RAILWAY_PUBLIC_DOMAIN}}
 ADMIN_API_KEY=<paste a strong random string: `openssl rand -hex 32`>
-BREVO_SMTP_LOGIN=<your Brevo SMTP login>
-BREVO_SMTP_KEY=<your Brevo SMTP key>
-MAIL_FROM=<a Brevo-verified sender address>
 ```
 
 ### frontend
@@ -80,7 +76,7 @@ Order things settle in: Postgres → scrape → backend → frontend.
 Visit the frontend's public domain. Then check:
 - Pages load (frontend → backend over HTTPS works).
 - Live prices tick and the coin badge updates (browser WebSocket → backend `/ws`).
-- Sign up → confirmation email arrives (Brevo configured + sender verified).
+- Sign up → you're logged in immediately (auth is username + password only).
 
 ---
 
@@ -109,7 +105,6 @@ Visit the frontend's public domain. Then check:
   `SPRING_DATASOURCE_URL`.
 - **Private networking has a few-seconds startup delay**; `restartPolicyType` in each
   `railway.json` handles the early flaps.
-- **Email:** `MAIL_FROM` must be a sender you've verified in Brevo, or sends bounce.
 - **Schema:** `spring.jpa.hibernate.ddl-auto=update` creates tables on first boot.
 
 ## Cleaner auth later (optional)

@@ -33,10 +33,8 @@ public class TreasurySeederTask {
         if (!userRepository.existsByUsername(TREASURY_USERNAME)) {
             User treasury = new User();
             treasury.setUsername(TREASURY_USERNAME);
-            // System account: a reserved, unreachable email and pre-verified so it
-            // is never subject to the email-confirmation flow. It can't log in anyway.
-            treasury.setEmail("treasury@localhost.invalid");
-            treasury.setEmailVerified(true);
+            // System account: an unusable password hash means it can never log in
+            // (login also rejects this username explicitly).
             treasury.setPasswordHash("__no_login__");
             treasury.setAvailableCoins(INITIAL_COINS);
             userRepository.save(treasury);

@@ -1,11 +1,7 @@
 package com.ufc.server.auth;
 
-import com.ufc.server.dto.ForgotPasswordDTO;
 import com.ufc.server.dto.LoginDTO;
-import com.ufc.server.dto.ResendVerificationDTO;
-import com.ufc.server.dto.ResetPasswordDTO;
 import com.ufc.server.dto.SignupDTO;
-import com.ufc.server.dto.VerifyEmailDTO;
 import com.ufc.server.user.User;
 import jakarta.validation.Valid;
 import java.util.HashMap;
@@ -40,36 +36,12 @@ public class AuthController {
         this.sessionRepository = sessionRepository;
     }
 
-    /** Create an account (unverified) and email a confirmation link. No session is issued yet. */
+    /** Create an account and log in immediately, returning a session token. */
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@Valid @RequestBody SignupDTO dto) {
-        authService.signup(dto);
+        AuthService.LoginResult result = authService.signup(dto);
         return ResponseEntity.ok(
-            Map.of(
-                "message",
-                "Account created. Check your email to confirm your account before logging in."
-            )
-        );
-    }
-
-    /** Confirm an email address from the link in the verification email. */
-    @PostMapping("/verify")
-    public ResponseEntity<?> verify(@Valid @RequestBody VerifyEmailDTO dto) {
-        authService.verifyEmail(dto);
-        return ResponseEntity.ok(Map.of("ok", true));
-    }
-
-    /** Resend the verification email. Always succeeds (no account enumeration). */
-    @PostMapping("/resend-verification")
-    public ResponseEntity<?> resendVerification(
-        @Valid @RequestBody ResendVerificationDTO dto
-    ) {
-        authService.resendVerification(dto);
-        return ResponseEntity.ok(
-            Map.of(
-                "message",
-                "If an account exists and is unverified, a new verification link has been sent."
-            )
+            authResponse(result.token(), result.user())
         );
     }
 
@@ -79,29 +51,6 @@ public class AuthController {
         return ResponseEntity.ok(
             authResponse(result.token(), result.user())
         );
-    }
-
-    /** Start the password-reset flow. Always succeeds (no account enumeration). */
-    @PostMapping("/forgot-password")
-    public ResponseEntity<?> forgotPassword(
-        @Valid @RequestBody ForgotPasswordDTO dto
-    ) {
-        authService.forgotPassword(dto);
-        return ResponseEntity.ok(
-            Map.of(
-                "message",
-                "If an account exists for that email, a password reset link has been sent."
-            )
-        );
-    }
-
-    /** Finish the password-reset flow with the token from the email. */
-    @PostMapping("/reset-password")
-    public ResponseEntity<?> resetPassword(
-        @Valid @RequestBody ResetPasswordDTO dto
-    ) {
-        authService.resetPassword(dto);
-        return ResponseEntity.ok(Map.of("ok", true));
     }
 
     @GetMapping("/me")
@@ -121,7 +70,6 @@ public class AuthController {
         Map<String, Object> body = new HashMap<>();
         body.put("id", user.getId());
         body.put("username", user.getUsername());
-        body.put("email", user.getEmail());
         body.put("available_coins", user.getAvailableCoins());
         body.put("reserved_coins", user.getReservedCoins());
         body.put("dark_mode", user.isDarkMode());
@@ -169,7 +117,6 @@ public class AuthController {
         Map<String, Object> userMap = new HashMap<>();
         userMap.put("id", user.getId());
         userMap.put("username", user.getUsername());
-        userMap.put("email", user.getEmail());
         userMap.put("available_coins", user.getAvailableCoins());
         userMap.put("reserved_coins", user.getReservedCoins());
         userMap.put("dark_mode", user.isDarkMode());

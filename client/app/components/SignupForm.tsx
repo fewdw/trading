@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
 import { signupAction, type FormState } from "../actions/auth";
 
@@ -15,40 +14,9 @@ export default function SignupForm() {
     undefined,
   );
 
-  if (state?.success) {
-    return (
-      <div className={card}>
-        <h1 className="text-xl font-semibold">Check your email</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          {state.success}
-        </p>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Didn&apos;t get it?{" "}
-          <Link href="/resend-verification" className="underline">
-            Resend confirmation
-          </Link>
-        </p>
-        <Link href="/login" className="text-sm underline">
-          Back to log in
-        </Link>
-      </div>
-    );
-  }
-
   return (
     <form action={formAction} className={card}>
       <h1 className="text-xl font-semibold">Sign up</h1>
-      <label className="flex flex-col gap-1 text-sm">
-        Email
-        <input
-          name="email"
-          type="email"
-          required
-          autoComplete="email"
-          defaultValue={state?.values?.email ?? ""}
-          className={input}
-        />
-      </label>
       <label className="flex flex-col gap-1 text-sm">
         Username
         <input

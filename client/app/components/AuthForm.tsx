@@ -21,7 +21,7 @@ export default function AuthForm({ title, submitLabel, action }: Props) {
     >
       <h1 className="text-xl font-semibold">{title}</h1>
       <label className="flex flex-col gap-1 text-sm">
-        Username or email
+        Username
         <input
           name="username"
           type="text"

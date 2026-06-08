@@ -8,7 +8,6 @@ export const THEME_COOKIE = "theme";
 export type AuthUser = {
   id: number;
   username: string;
-  email: string;
   availableCoins: number;
   reservedCoins: number;
   darkMode: boolean;
@@ -17,7 +16,6 @@ export type AuthUser = {
 type RawUser = {
   id: number;
   username: string;
-  email?: string;
   available_coins: number;
   reserved_coins: number;
   dark_mode?: boolean;
@@ -27,7 +25,6 @@ function toAuthUser(raw: RawUser): AuthUser {
   return {
     id: raw.id,
     username: raw.username,
-    email: raw.email ?? "",
     availableCoins: raw.available_coins,
     reservedCoins: raw.reserved_coins,
     darkMode: raw.dark_mode ?? false,
@@ -78,11 +75,6 @@ async function postJson<T = unknown>(
   return { ok: true, data: data as T };
 }
 
-// A request that returns no useful body, just success/failure.
-export type SimpleResult =
-  | { ok: true }
-  | { ok: false; status: number; error: string };
-
 export type AuthResult =
   | { ok: true; token: string; user: AuthUser }
   | { ok: false; status: number; error: string };
@@ -100,42 +92,15 @@ export async function loginRequest(
 }
 
 export async function signupRequest(
-  email: string,
   username: string,
   password: string,
-): Promise<SimpleResult> {
-  const res = await postJson("/api/auth/signup", { email, username, password });
-  return res.ok ? { ok: true } : res;
-}
-
-export async function verifyEmailRequest(token: string): Promise<SimpleResult> {
-  const res = await postJson("/api/auth/verify", { token });
-  return res.ok ? { ok: true } : res;
-}
-
-export async function resendVerificationRequest(
-  email: string,
-): Promise<SimpleResult> {
-  const res = await postJson("/api/auth/resend-verification", { email });
-  return res.ok ? { ok: true } : res;
-}
-
-export async function forgotPasswordRequest(
-  email: string,
-): Promise<SimpleResult> {
-  const res = await postJson("/api/auth/forgot-password", { email });
-  return res.ok ? { ok: true } : res;
-}
-
-export async function resetPasswordRequest(
-  token: string,
-  newPassword: string,
-): Promise<SimpleResult> {
-  const res = await postJson("/api/auth/reset-password", {
-    token,
-    newPassword,
-  });
-  return res.ok ? { ok: true } : res;
+): Promise<AuthResult> {
+  const res = await postJson<{ token: string; user: RawUser }>(
+    "/api/auth/signup",
+    { username, password },
+  );
+  if (!res.ok) return res;
+  return { ok: true, token: res.data.token, user: toAuthUser(res.data.user) };
 }
 
 export async function setSessionCookie(token: string) {

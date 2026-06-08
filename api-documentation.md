@@ -54,60 +54,37 @@ Every `/api/**` endpoint is rate limited by a token bucket:
 
 ## Authentication — `/api/auth`
 
-Tokens for email confirmation and password reset are single-use, time-limited,
-and stored only as SHA-256 hashes; the raw token lives only in the emailed link.
+Auth is **username + password only**. A session is a random 256-bit opaque
+token (sent as `Authorization: Bearer <token>`); sessions live for 7 days.
 
 ### POST `/api/auth/signup`
 
-Create an account. It starts **unverified** and a confirmation email is sent —
-**no session is issued** until the email is confirmed.
+Create an account and log in immediately — the response is the same shape as
+login (a session token + user).
 
 **Request**
 ```json
-{ "email": "conor@example.com", "username": "conor", "password": "hunter2pw" }
+{ "username": "conor", "password": "hunter2pw" }
 ```
 
 | Field | Rules |
 |-------|-------|
-| `email` | valid email, unique |
-| `username` | 3–30 chars, unique |
-| `password` | 8–72 chars |
+| `username` | 3–30 chars, letters/numbers/underscores, unique |
+| `password` | 8–72 chars, not equal to the username |
 
 **Response `200 OK`**
 ```json
-{ "message": "Account created. Check your email to confirm your account before logging in." }
+{
+  "token": "Hh3k...base64url",
+  "user": { "id": 1, "username": "conor", "available_coins": 100000, "reserved_coins": 0, "dark_mode": false }
+}
 ```
 
 | Code | When |
 |------|------|
-| `200` | Created; confirmation email sent |
+| `200` | Created and logged in; session issued |
 | `400` | Validation failure (message names the field) |
-| `409` | `username taken` or `email already registered` |
-
----
-
-### POST `/api/auth/verify`
-
-Confirm an email address using the token from the confirmation email.
-
-**Request** → `{ "token": "<token from the email link>" }`
-
-**Response `200 OK`** → `{ "ok": true }`
-
-| Code | When |
-|------|------|
-| `200` | Email confirmed |
-| `400` | `invalid or expired token` (includes already-used) |
-
----
-
-### POST `/api/auth/resend-verification`
-
-Resend the confirmation email. Always `200` (no account enumeration).
-
-**Request** → `{ "email": "conor@example.com" }`
-
-**Response `200 OK`** → `{ "message": "If an account exists and is unverified, a new verification link has been sent." }`
+| `409` | `username taken` |
 
 ---
 
@@ -122,7 +99,7 @@ Resend the confirmation email. Always `200` (no account enumeration).
 ```json
 {
   "token": "Hh3k...base64url",
-  "user": { "id": 1, "username": "conor", "email": "conor@example.com", "available_coins": 100000, "reserved_coins": 0, "dark_mode": false }
+  "user": { "id": 1, "username": "conor", "available_coins": 100000, "reserved_coins": 0, "dark_mode": false }
 }
 ```
 
@@ -131,36 +108,6 @@ Resend the confirmation email. Always `200` (no account enumeration).
 | `200` | Authenticated, session issued |
 | `400` | `username is required` / `password is required` |
 | `401` | `invalid credentials` |
-| `403` | `Please verify your email before logging in.` |
-
----
-
-### POST `/api/auth/forgot-password`
-
-Begin a password reset. Always `200` (no account enumeration); if the email
-matches an account, a reset link is sent.
-
-**Request** → `{ "email": "conor@example.com" }`
-
-**Response `200 OK`** → `{ "message": "If an account exists for that email, a password reset link has been sent." }`
-
----
-
-### POST `/api/auth/reset-password`
-
-Finish a password reset. On success **every session for the user is revoked**.
-
-**Request**
-```json
-{ "token": "<token from the reset email>", "newPassword": "my-new-pw" }
-```
-
-**Response `200 OK`** → `{ "ok": true }`
-
-| Code | When |
-|------|------|
-| `200` | Password changed; sessions revoked |
-| `400` | `invalid or expired token`, or password too short |
 
 ---
 
@@ -170,7 +117,7 @@ Current user. **Auth required.**
 
 **Response `200 OK`**
 ```json
-{ "id": 1, "username": "conor", "email": "conor@example.com", "available_coins": 98500, "reserved_coins": 1500, "dark_mode": false }
+{ "id": 1, "username": "conor", "available_coins": 98500, "reserved_coins": 1500, "dark_mode": false }
 ```
 
 | Code | When |
@@ -631,12 +578,8 @@ refetch the book/trades. All events fire **after** the DB transaction commits.
 
 | Method | Path | Auth | Purpose |
 |--------|------|:----:|---------|
-| POST | `/api/auth/signup` | – | Create account (sends confirmation email) |
-| POST | `/api/auth/verify` | – | Confirm email |
-| POST | `/api/auth/resend-verification` | – | Resend confirmation email |
-| POST | `/api/auth/login` | – | Log in (requires verified email) |
-| POST | `/api/auth/forgot-password` | – | Request a password reset email |
-| POST | `/api/auth/reset-password` | – | Set a new password from reset token |
+| POST | `/api/auth/signup` | – | Create account + log in (returns a token) |
+| POST | `/api/auth/login` | – | Log in (returns a token) |
 | GET | `/api/auth/me` | ✓ | Current user |
 | POST | `/api/auth/logout` | ✓ | End session |
 | GET | `/api/fighters` | – | List fighters |
@@ -659,30 +602,21 @@ refetch the book/trades. All events fire **after** the DB transaction commits.
 ## Example: a full trade flow
 
 ```bash
-# 1. sign up. This sends a confirmation email and does NOT return a token —
-#    the account must confirm its email before it can log in.
-curl -s -X POST localhost:8080/api/auth/signup \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"conor@example.com","username":"conor","password":"hunter2pw"}'
-
-# 2. confirm the email using the token from the link, then log in for a token
-curl -s -X POST localhost:8080/api/auth/verify \
-  -H 'Content-Type: application/json' \
-  -d '{"token":"<token from the confirmation email>"}'
-
-TOKEN=$(curl -s -X POST localhost:8080/api/auth/login \
+# 1. sign up. This logs you in immediately and returns a session token
+#    (login works the same way if the account already exists).
+TOKEN=$(curl -s -X POST localhost:8080/api/auth/signup \
   -H 'Content-Type: application/json' \
   -d '{"username":"conor","password":"hunter2pw"}' | jq -r .token)
 
-# 3. browse the market
+# 2. browse the market
 curl -s localhost:8080/api/fighters
 
-# 4. place a limit buy for 10 shares of fighter 1 at 1.50 coins
+# 3. place a limit buy for 10 shares of fighter 1 at 1.50 coins
 curl -s -X POST localhost:8080/api/orders \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"fighterId":"1","side":"BUY","type":"LIMIT","limitPrice":150,"quantity":10}'
 
-# 5. check your positions, net worth, and public profile
+# 4. check your positions, net worth, and public profile
 curl -s localhost:8080/api/portfolio        -H "Authorization: Bearer $TOKEN"
 curl -s localhost:8080/api/portfolio/summary -H "Authorization: Bearer $TOKEN"
 curl -s localhost:8080/api/users/conor/profile

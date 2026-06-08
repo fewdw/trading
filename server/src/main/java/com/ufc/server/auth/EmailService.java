@@ -1,32 +1,57 @@
 package com.ufc.server.auth;
 
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
 
 /**
- * Sends the transactional auth emails. Links point at the frontend
- * ({@code app.frontend-url}); the raw token is URL-safe base64 so it needs no
- * extra encoding. Send failures throw {@code MailException} — callers decide
- * whether that should surface or be swallowed.
+ * Sends the transactional auth emails via Brevo's HTTPS API
+ * ({@code https://api.brevo.com/v3/smtp/email}) rather than SMTP — many hosts
+ * (Railway included) block outbound SMTP, but HTTPS is always open. Links point
+ * at the frontend ({@code app.frontend-url}); the raw token is URL-safe base64
+ * so it needs no extra encoding. Send failures throw a {@code RestClientException}
+ * — callers decide whether that should surface or be swallowed.
  */
 @Service
 public class EmailService {
 
-    private final JavaMailSender mailSender;
-    private final String from;
+    private static final String BREVO_SEND_ENDPOINT =
+        "https://api.brevo.com/v3/smtp/email";
+
+    private final RestClient restClient;
+    private final String fromEmail;
+    private final String fromName;
+    private final String apiKey;
     private final String frontendUrl;
 
     public EmailService(
-        JavaMailSender mailSender,
-        @Value("${app.mail-from}") String from,
+        @Value("${app.mail-from}") String fromEmail,
+        @Value("${app.mail-from-name:Fighter Market}") String fromName,
+        @Value("${brevo.api-key:}") String apiKey,
         @Value("${app.frontend-url}") String frontendUrl
     ) {
-        this.mailSender = mailSender;
-        this.from = from;
+        this.fromEmail = fromEmail;
+        this.fromName = fromName;
+        this.apiKey = apiKey;
         // strip a trailing slash so we don't build "...//verify"
         this.frontendUrl = frontendUrl.replaceAll("/+$", "");
+
+        // Cap connect/read so a slow or unreachable API can't hang the request
+        // thread (and, via that, the signup the send is part of).
+        SimpleClientHttpRequestFactory requestFactory =
+            new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofSeconds(5));
+        requestFactory.setReadTimeout(Duration.ofSeconds(10));
+        this.restClient = RestClient.builder()
+            .baseUrl(BREVO_SEND_ENDPOINT)
+            .requestFactory(requestFactory)
+            .build();
     }
 
     public void sendVerificationEmail(String to, String rawToken) {
@@ -52,11 +77,18 @@ public class EmailService {
     }
 
     private void send(String to, String subject, String body) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(from);
-        message.setTo(to);
-        message.setSubject(subject);
-        message.setText(body);
-        mailSender.send(message);
+        Map<String, Object> payload = Map.of(
+            "sender", Map.of("email", fromEmail, "name", fromName),
+            "to", List.of(Map.of("email", to)),
+            "subject", subject,
+            "textContent", body
+        );
+        restClient
+            .post()
+            .header("api-key", apiKey)
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(payload)
+            .retrieve()
+            .toBodilessEntity();
     }
 }

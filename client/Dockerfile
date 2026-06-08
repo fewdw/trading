@@ -4,7 +4,7 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci
+RUN npm ci
 
 # ── Build ─────────────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
@@ -12,8 +12,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Cache the Next.js build cache across builds for faster recompiles.
-RUN --mount=type=cache,target=/app/.next/cache npm run build
+RUN npm run build
 
 # ── Runtime ───────────────────────────────────────────────────────────────
 # Only the standalone server + static assets ship — no node_modules, no source.

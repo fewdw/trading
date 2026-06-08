@@ -84,9 +84,11 @@ Visit the frontend's public domain. Then check:
   Pinning it to 8080 keeps the port deterministic so nothing has to guess it.
 - **`BACKEND_URL` is the *public* backend URL.** The Next server fetches the backend
   server-side; using the public URL avoids Railway's IPv6 private-DNS quirk in Node.
-  Optional optimization once it's working: switch to private + no egress with
-  `BACKEND_URL=http://${{backend.RAILWAY_PRIVATE_DOMAIN}}:8080` (if Node can't resolve
-  it, add `NODE_OPTIONS=--dns-result-order=ipv6first` to the frontend).
+  Railway shows an **egress-fee warning** on this variable — that's expected and the
+  cost is negligible for a hobby app. Optional optimization once it's working: switch
+  to private + no egress with `BACKEND_URL=http://${{backend.RAILWAY_PRIVATE_DOMAIN}}:8080`
+  (if Node then can't reach it, add `NODE_OPTIONS=--dns-result-order=ipv6first` to the
+  frontend).
 - **`BACKEND_WS_URL`** — the browser opens the live socket straight to the backend.
   `/api/ws-token` reads the httpOnly `session` cookie server-side and hands the
   browser this URL + the token, which the socket sends as `?token=` (the backend

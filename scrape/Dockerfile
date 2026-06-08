@@ -7,11 +7,9 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Dependencies first (cached until requirements.txt changes); the cache mount
-# keeps the wheel cache out of the image while speeding up rebuilds.
+# Dependencies first, so this layer is cached until requirements.txt changes.
 COPY requirements.txt ./
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r requirements.txt
+RUN pip install -r requirements.txt
 
 COPY scrape.py app.py ./
 

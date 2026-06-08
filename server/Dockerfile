@@ -8,16 +8,13 @@ FROM eclipse-temurin:26-jdk AS builder
 WORKDIR /app
 
 # Resolve dependencies first so this layer is cached until pom.xml changes.
-# The BuildKit cache mount keeps ~/.m2 warm across builds for fast rebuilds.
 COPY .mvn .mvn
 COPY mvnw pom.xml ./
 RUN chmod +x mvnw
-RUN --mount=type=cache,target=/root/.m2 \
-    ./mvnw -B -q dependency:go-offline
+RUN ./mvnw -B -q dependency:go-offline
 
 COPY src ./src
-RUN --mount=type=cache,target=/root/.m2 \
-    ./mvnw -B -q -DskipTests package
+RUN ./mvnw -B -q -DskipTests package
 
 # ── Runtime stage ─────────────────────────────────────────────────────────
 # Alpine JRE (musl) — pure-JVM bytecode runs identically and the image is

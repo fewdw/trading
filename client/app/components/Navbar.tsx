@@ -11,8 +11,34 @@ export default async function Navbar() {
     // regardless of how wide the logo (left) or account controls (right) are.
     <nav className="grid grid-cols-3 items-center gap-4 border-b border-zinc-200 bg-white px-6 py-3 dark:border-zinc-800 dark:bg-zinc-950">
       <div className="flex min-w-0 items-center gap-4">
-        <Link href="/" className="shrink-0 font-semibold tracking-tight">
-          App
+        <Link
+          href="/"
+          className="flex shrink-0 items-center gap-2 font-semibold tracking-tight"
+          aria-label="Fighter Market — home"
+        >
+          <svg
+            viewBox="0 0 32 32"
+            className="h-6 w-6 shrink-0"
+            fill="none"
+            aria-hidden
+          >
+            <rect width="32" height="32" rx="7" fill="#0a0a0a" />
+            <path
+              d="M5.5 20.5 L13 13 L18 17.5 L26.5 8"
+              stroke="#16a34a"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M20 8 H26.5 V14.5"
+              stroke="#16a34a"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span className="hidden sm:inline">Fighter Market</span>
         </Link>
         <Link
           href="/about"

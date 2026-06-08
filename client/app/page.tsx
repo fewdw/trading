@@ -1,13 +1,30 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUser } from "./lib/auth";
 import { getFighters } from "./lib/fighters";
 import FighterGrid from "./components/FighterGrid";
+import JsonLd from "./components/JsonLd";
+import { SITE_NAME, SITE_URL, SITE_DESCRIPTION } from "./lib/site";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
+
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: SITE_NAME,
+  alternateName: "Fighter Market — UFC fantasy stock market",
+  url: SITE_URL,
+  description: SITE_DESCRIPTION,
+};
 
 export default async function Home() {
   const [user, fighters] = await Promise.all([getCurrentUser(), getFighters()]);
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
+      <JsonLd data={websiteJsonLd} />
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">

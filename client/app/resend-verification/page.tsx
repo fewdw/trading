@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import EmailRequestForm from "../components/EmailRequestForm";
 import { resendVerificationAction } from "../actions/auth";
+
+export const metadata: Metadata = {
+  title: "Resend confirmation",
+  robots: { index: false, follow: true },
+};
 
 export default function ResendVerificationPage() {
   return (

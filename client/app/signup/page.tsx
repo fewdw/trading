@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import SignupForm from "../components/SignupForm";
 import { getCurrentUser } from "../lib/auth";
+
+export const metadata: Metadata = {
+  title: "Sign up",
+  description:
+    "Create a free Fighter Market account. Get 1,000 starting coins plus 500 every two weeks, and start trading shares of UFC fighters.",
+  alternates: { canonical: "/signup" },
+};
 
 export default async function SignupPage() {
   // Already logged in? There's no account to create.

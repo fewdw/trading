@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "../../lib/auth";
@@ -14,7 +16,52 @@ import PriceChart from "../../components/PriceChart";
 import PlaceOrderForm from "../../components/PlaceOrderForm";
 import FighterLiveRefresh from "../../components/FighterLiveRefresh";
 import OrderStatusBadge from "../../components/OrderStatusBadge";
+import JsonLd from "../../components/JsonLd";
+import { SITE_URL } from "../../lib/site";
 import { cancelOrderAction } from "../../actions/orders";
+
+// Shared by generateMetadata and the page so the fighter is fetched once.
+const loadFighter = cache(getFighterBySlug);
+
+const titleCase = (s: string) =>
+  s.replace(/\b\w/g, (c) => c.toUpperCase());
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const fighter = await loadFighter(slug);
+  if (!fighter) return { title: "Fighter not found", robots: { index: false } };
+
+  const name = titleCase(fighter.name);
+  const price = `${formatCoins(fighter.lastPrice)} coins`;
+  const title = `${name} — ${price}`;
+  const description = `Trade shares of ${name} on Fighter Market. Live price ${price}, full order book, recent trades, and price history.`;
+  const canonical = `/fighter/${slug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: `${title} · Fighter Market`,
+      description,
+      type: "website",
+      url: canonical,
+      images: fighter.photo
+        ? [{ url: fighter.photo, alt: name }]
+        : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} · Fighter Market`,
+      description,
+      images: fighter.photo ? [fighter.photo] : undefined,
+    },
+  };
+}
 
 export default async function FighterPage({
   params,
@@ -22,7 +69,7 @@ export default async function FighterPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const fighter = await getFighterBySlug(slug);
+  const fighter = await loadFighter(slug);
   if (!fighter) notFound();
 
   const [book, trades, user] = await Promise.all([
@@ -47,8 +94,23 @@ export default async function FighterPage({
   const bestBid = book.bids[0]?.price ?? null;
   const bestAsk = book.asks[0]?.price ?? null;
 
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Fighters", item: `${SITE_URL}/` },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: titleCase(fighter.name),
+        item: `${SITE_URL}/fighter/${slug}`,
+      },
+    ],
+  };
+
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
+      <JsonLd data={breadcrumbJsonLd} />
       <FighterLiveRefresh fighterId={fighter.id} />
 
       <Link href="/" className="text-sm text-zinc-500 underline">

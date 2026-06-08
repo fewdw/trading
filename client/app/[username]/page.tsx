@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProfile } from "../lib/profile";
@@ -6,6 +8,35 @@ import { slugify } from "../lib/slug";
 import { formatCoins } from "../lib/format";
 import OrderStatusBadge from "../components/OrderStatusBadge";
 import ThemeToggle from "../components/ThemeToggle";
+
+// Shared by generateMetadata and the page so the profile is fetched once.
+const loadProfile = cache(getProfile);
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ username: string }>;
+}): Promise<Metadata> {
+  const { username } = await params;
+  const profile = await loadProfile(username);
+  if (!profile) return { title: "User not found", robots: { index: false } };
+
+  const title = `${profile.username} — portfolio`;
+  const description = `${profile.username}'s portfolio on Fighter Market: holdings, realized and unrealized P&L, and full order history.`;
+  const canonical = `/${profile.username}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: `${title} · Fighter Market`,
+      description,
+      type: "profile",
+      url: canonical,
+    },
+  };
+}
 
 function tone(n: number): string {
   return n > 0
@@ -45,7 +76,7 @@ export default async function ProfilePage({
 }) {
   const { username } = await params;
   const [profile, me] = await Promise.all([
-    getProfile(username),
+    loadProfile(username),
     getCurrentUser(),
   ]);
   if (!profile) notFound();
@@ -82,7 +113,10 @@ export default async function ProfilePage({
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Stat label="Holdings value" value={formatCoins(profile.holdingsValue)} />
+        <Stat
+          label="Holdings value"
+          value={formatCoins(profile.holdingsValue)}
+        />
         <Stat
           label="Unrealized P&L"
           value={signed(profile.unrealizedPnl)}
@@ -139,7 +173,9 @@ export default async function ProfilePage({
                     <td className="px-3 py-2 text-right">
                       {formatCoins(h.marketValue)}
                     </td>
-                    <td className={`px-3 py-2 text-right ${tone(h.unrealizedPnl)}`}>
+                    <td
+                      className={`px-3 py-2 text-right ${tone(h.unrealizedPnl)}`}
+                    >
                       {signed(h.unrealizedPnl)}
                     </td>
                   </tr>

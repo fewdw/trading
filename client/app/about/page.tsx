@@ -3,8 +3,17 @@ import type { Metadata } from "next";
 import { getCurrentUser } from "../lib/auth";
 
 export const metadata: Metadata = {
-  title: "About — Fighter Market",
-  description: "A fantasy stock market for UFC fighters.",
+  title: "About",
+  description:
+    "What Fighter Market is and how it works: start with free coins, trade shares of UFC fighters on a live order book, and track your profit and loss — all play money.",
+  alternates: { canonical: "/about" },
+  openGraph: {
+    title: "About · Fighter Market",
+    description:
+      "A fantasy stock market for UFC fighters — start with free coins, trade on a live order book, and climb the leaderboard.",
+    type: "website",
+    url: "/about",
+  },
 };
 
 function Step({ n, title, children }: {

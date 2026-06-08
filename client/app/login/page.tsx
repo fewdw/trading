@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AuthForm from "../components/AuthForm";
 import { loginAction } from "../actions/auth";
 import { getCurrentUser } from "../lib/auth";
+
+export const metadata: Metadata = {
+  title: "Log in",
+  robots: { index: false, follow: true },
+};
 
 export default async function LoginPage({
   searchParams,

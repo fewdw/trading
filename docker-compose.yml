@@ -67,6 +67,9 @@ services:
     restart: unless-stopped
     environment:
       BACKEND_URL: ${BACKEND_URL}
+      # Public origin for canonical/OG/sitemap URLs (SEO). Same value the backend
+      # uses for email links.
+      SITE_URL: ${FRONTEND_URL}
       NODE_ENV: production
     ports:
       - "3000:3000"

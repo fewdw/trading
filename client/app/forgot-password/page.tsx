@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import EmailRequestForm from "../components/EmailRequestForm";
 import { forgotPasswordAction } from "../actions/auth";
+
+export const metadata: Metadata = {
+  title: "Forgot password",
+  robots: { index: false, follow: true },
+};
 
 export default function ForgotPasswordPage() {
   return (

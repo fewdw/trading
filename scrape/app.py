@@ -19,4 +19,7 @@ def fighters():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001)
+    # "::" binds both IPv6 and IPv4 (dual-stack). Required for Railway's
+    # private networking, which resolves service DNS over IPv6; still works
+    # locally / in docker-compose where peers connect over IPv4.
+    app.run(host="::", port=5001)

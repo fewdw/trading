@@ -1,8 +1,14 @@
 node_modules
 .next
 .git
+.gitignore
 Dockerfile
 .dockerignore
 npm-debug.log*
+*.log
 .DS_Store
 .env*
+*.md
+.vscode
+.idea
+tsconfig.tsbuildinfo

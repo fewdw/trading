@@ -2,7 +2,11 @@ target
 .idea
 *.iml
 .git
+.gitignore
+.gitattributes
 .DS_Store
 Dockerfile
 .dockerignore
 .env
+*.md
+HELP.md

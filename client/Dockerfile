@@ -1,17 +1,22 @@
 # syntax=docker/dockerfile:1.7
 
+# ── Dependencies ──────────────────────────────────────────────────────────
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
+# ── Build ─────────────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+# Cache the Next.js build cache across builds for faster recompiles.
+RUN --mount=type=cache,target=/app/.next/cache npm run build
 
+# ── Runtime ───────────────────────────────────────────────────────────────
+# Only the standalone server + static assets ship — no node_modules, no source.
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production

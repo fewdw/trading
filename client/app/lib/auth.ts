@@ -48,16 +48,25 @@ type ApiResult<T> =
   | { ok: true; data: T }
   | { ok: false; status: number; error: string };
 
+// Cap auth requests so a slow/unreachable backend can't hang the form forever.
+const AUTH_TIMEOUT_MS = 20000;
+
 async function postJson<T = unknown>(
   path: string,
   body: unknown,
 ): Promise<ApiResult<T>> {
-  const res = await fetch(`${BACKEND_URL}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BACKEND_URL}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+      signal: AbortSignal.timeout(AUTH_TIMEOUT_MS),
+    });
+  } catch {
+    return { ok: false, status: 0, error: "Something went wrong. Please try again." };
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     return {

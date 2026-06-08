@@ -57,11 +57,17 @@ MAIL_FROM=<a Brevo-verified sender address>
 
 ### frontend
 ```
+PORT=3000
 BACKEND_URL=https://${{backend.RAILWAY_PUBLIC_DOMAIN}}
 BACKEND_WS_URL=wss://${{backend.RAILWAY_PUBLIC_DOMAIN}}/ws
 SITE_URL=https://${{frontend.RAILWAY_PUBLIC_DOMAIN}}
 NODE_ENV=production
 ```
+
+> `PORT=3000` matters: Railway injects its own `PORT` at runtime (overriding the
+> Dockerfile's `ENV PORT=3000`), so without pinning it Next listens on a port the
+> public domain isn't routing to — you get "Application failed to respond". The
+> domain's target port (Settings → Networking) must also be `3000`.
 
 ### scrape
 No variables needed.

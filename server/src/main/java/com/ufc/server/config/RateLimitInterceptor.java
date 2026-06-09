@@ -49,9 +49,8 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         if (buckets.size() > MAX_TRACKED_CLIENTS) {
             buckets.clear(); // crude eviction; everyone gets a fresh bucket
         }
-        Bucket bucket = buckets.computeIfAbsent(
-            clientKey(request),
-            k -> new Bucket(capacity, refillPerSecond)
+        Bucket bucket = buckets.computeIfAbsent(clientKey(request), k ->
+            new Bucket(capacity, refillPerSecond)
         );
         if (bucket.tryConsume()) {
             return true;
@@ -65,8 +64,8 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             .getWriter()
             .write(
                 "{\"error\":\"rate limit exceeded\",\"retryAfterSeconds\":" +
-                retryAfter +
-                "}"
+                    retryAfter +
+                    "}"
             );
         return false;
     }

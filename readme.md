@@ -20,6 +20,8 @@ Reset the database:
 docker compose down -v && docker compose build --no-cache && docker compose up
 ```
 
+Visit [localhost:3000](http://localhost:3000) in browser to see app.
+
 ## Tests
 
 The server suite includes property/invariant tests of the matching engine

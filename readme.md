@@ -1,14 +1,10 @@
 # Fighter Market
 
-## Live Deploy
-
-[Live Deployed URL](https://client-production-2c9e.up.railway.app)
-
 [![CI](https://github.com/fewdw/trading/actions/workflows/ci.yml/badge.svg)](https://github.com/fewdw/trading/actions/workflows/ci.yml)
 
 A real-time fantasy stock market for UFC fighters: a custom limit-order matching
 engine (market/limit orders, price-time priority, an aggregated order book) with
-live price and balance updates over WebSockets.
+live price and balance updates over WebSockets. You can check out the live deploy [here]([Live Deployed URL](https://client-production-2c9e.up.railway.app))
 
 **Stack:** Spring Boot (Java) · Postgres · Next.js (React) · Python scraper · Docker.
 

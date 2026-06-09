@@ -1,0 +1,63 @@
+name: CI
+
+# Build and test the whole stack on every push and PR. The server tests spin up
+# a real Postgres via Testcontainers, which works out of the box on GitHub's
+# Ubuntu runners (Docker is preinstalled). Railway handles deploy on push to main.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same ref supersedes an in-progress run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    name: Server — build + tests (Testcontainers)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 26
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "26"
+          cache: maven
+
+      # compile -> run the JUnit/Testcontainers suite -> package the boot jar.
+      - name: Build, test and package
+        run: ./mvnw -B -ntp verify
+
+  client:
+    name: Client — lint + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build

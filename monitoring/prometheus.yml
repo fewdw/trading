@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: fighter-market
+    metrics_path: /actuator/prometheus
+    static_configs:
+      # The backend's published port on the host (docker compose maps 8080,
+      # and `./mvnw spring-boot:run` also listens there).
+      - targets: ["host.docker.internal:8080"]

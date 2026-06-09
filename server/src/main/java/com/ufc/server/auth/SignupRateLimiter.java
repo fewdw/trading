@@ -2,6 +2,7 @@ package com.ufc.server.auth;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -17,15 +18,24 @@ import org.springframework.stereotype.Component;
 @Component
 public class SignupRateLimiter {
 
-    /** Burst: accounts one IP can create back-to-back. */
-    private static final double CAPACITY = 5;
-    /** Sustained refill (=> ~5 new accounts per hour per IP). */
-    private static final double REFILL_PER_SECOND = 5.0 / 3600.0;
     /** Safety valve so the bucket map can't grow without bound. */
     private static final int MAX_TRACKED_CLIENTS = 50_000;
 
+    /** Burst: accounts one IP can create back-to-back (default 5). */
+    private final double capacity;
+    /** Sustained refill per second (default 5/hour). */
+    private final double refillPerSecond;
+
     private final ConcurrentHashMap<String, Bucket> buckets =
         new ConcurrentHashMap<>();
+
+    public SignupRateLimiter(
+        @Value("${signup.ratelimit.burst:5}") double burst,
+        @Value("${signup.ratelimit.per-hour:5}") double perHour
+    ) {
+        this.capacity = burst;
+        this.refillPerSecond = perHour / 3600.0;
+    }
 
     /** True if this request's IP may create an account right now. */
     public boolean tryAcquire(HttpServletRequest request) {
@@ -33,7 +43,10 @@ public class SignupRateLimiter {
             buckets.clear();
         }
         return buckets
-            .computeIfAbsent(clientIp(request), k -> new Bucket())
+            .computeIfAbsent(
+                clientIp(request),
+                k -> new Bucket(capacity, refillPerSecond)
+            )
             .tryConsume();
     }
 
@@ -48,8 +61,16 @@ public class SignupRateLimiter {
     /** A single token bucket. Synchronized: per-key contention is trivial. */
     private static final class Bucket {
 
-        private double tokens = CAPACITY;
+        private final double capacity;
+        private final double refillPerSecond;
+        private double tokens;
         private long lastRefillNanos = System.nanoTime();
+
+        Bucket(double capacity, double refillPerSecond) {
+            this.capacity = capacity;
+            this.refillPerSecond = refillPerSecond;
+            this.tokens = capacity;
+        }
 
         synchronized boolean tryConsume() {
             refill();
@@ -67,8 +88,8 @@ public class SignupRateLimiter {
                 return;
             }
             tokens = Math.min(
-                CAPACITY,
-                tokens + elapsedSeconds * REFILL_PER_SECOND
+                capacity,
+                tokens + elapsedSeconds * refillPerSecond
             );
             lastRefillNanos = now;
         }

@@ -13,6 +13,9 @@ import com.ufc.server.user.User;
 import com.ufc.server.user.UserRepository;
 import com.ufc.server.websocket.BalanceUpdateEvent;
 import com.ufc.server.websocket.MarketUpdateEvent;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
@@ -49,13 +52,20 @@ public class OrderService {
     private final TradeRepository tradeRepository;
     private final ApplicationEventPublisher eventPublisher;
 
+    // Metrics: placement latency/throughput, fills, and rejections. Prometheus
+    // derives rates (orders/sec, fills/sec) and P99 from these.
+    private final Timer placementTimer;
+    private final Counter fillsCounter;
+    private final Counter rejectedCounter;
+
     public OrderService(
         FighterRepository fighterRepository,
         UserRepository userRepository,
         HoldingRepository holdingRepository,
         OrderRepository orderRepository,
         TradeRepository tradeRepository,
-        ApplicationEventPublisher eventPublisher
+        ApplicationEventPublisher eventPublisher,
+        MeterRegistry meterRegistry
     ) {
         this.fighterRepository = fighterRepository;
         this.userRepository = userRepository;
@@ -63,6 +73,16 @@ public class OrderService {
         this.orderRepository = orderRepository;
         this.tradeRepository = tradeRepository;
         this.eventPublisher = eventPublisher;
+        this.placementTimer = Timer.builder("engine.order.placement")
+            .description("Time to place and match an order")
+            .publishPercentileHistogram()
+            .register(meterRegistry);
+        this.fillsCounter = Counter.builder("engine.trades")
+            .description("Matched trades (fills)")
+            .register(meterRegistry);
+        this.rejectedCounter = Counter.builder("engine.order.rejected")
+            .description("Order placements rejected (bad funds/shares/liquidity)")
+            .register(meterRegistry);
     }
 
     /**
@@ -89,6 +109,21 @@ public class OrderService {
 
     @Transactional
     public OrderDto placeOrder(User caller, PlaceOrderDTO dto) {
+        Timer.Sample sample = Timer.start();
+        boolean accepted = false;
+        try {
+            OrderDto result = doPlaceOrder(caller, dto);
+            accepted = true;
+            return result;
+        } finally {
+            sample.stop(placementTimer);
+            if (!accepted) {
+                rejectedCounter.increment();
+            }
+        }
+    }
+
+    private OrderDto doPlaceOrder(User caller, PlaceOrderDTO dto) {
         User actor = requireActor(caller);
         Fighter fighter = requireTradableFighter(dto.fighterId());
 
@@ -353,6 +388,8 @@ public class OrderService {
         trade.setPrice(price);
         trade.setQuantity(qty);
         tradeRepository.save(trade);
+
+        fillsCounter.increment();
     }
 
     /** Pre-walk the asks to size a market buy's reservation, capped at available coins. */

@@ -33,3 +33,33 @@ cd server && ./mvnw test
 
 CI (GitHub Actions) builds the server + client, runs this suite, and lints the
 client on every push.
+
+## Observability
+
+The backend ships Spring Boot Actuator + Micrometer, exposing Prometheus metrics
+at `/actuator/prometheus` and health probes at `/actuator/health`. Custom
+matching-engine metrics:
+
+| Metric | Type | What |
+|--------|------|------|
+| `engine.order.placement` | timer (histogram) | order placement latency + throughput; P99 via histogram buckets |
+| `engine.trades` | counter | fills (matched trades) |
+| `engine.order.rejected` | counter | rejected placements |
+| `websocket.connections.active` | gauge | open WebSocket connections |
+
+A turnkey Prometheus + Grafana stack is in [`monitoring/`](monitoring) (with the
+PromQL for each panel). Set `LOG_STRUCTURED_FORMAT=ecs` to emit JSON structured
+logs to stdout in production.
+
+## Load testing
+
+[`loadtest/`](loadtest) drives concurrent order placement with k6 and reports
+throughput and latency percentiles:
+
+```
+throughput:  ~3930 orders/sec
+latency p99: ~50.8 ms
+```
+
+<!-- Run loadtest/ on your machine and paste your numbers above. -->
+See [`loadtest/README.md`](loadtest/README.md) for the one-command run.

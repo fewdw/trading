@@ -2,6 +2,8 @@ package com.ufc.server.websocket;
 
 import com.ufc.server.auth.CurrentUserService;
 import com.ufc.server.user.User;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Set;
@@ -37,8 +39,15 @@ public class BalanceWebSocketHandler extends TextWebSocketHandler {
     private final Set<WebSocketSession> allSessions =
         ConcurrentHashMap.newKeySet();
 
-    public BalanceWebSocketHandler(CurrentUserService currentUserService) {
+    public BalanceWebSocketHandler(
+        CurrentUserService currentUserService,
+        MeterRegistry meterRegistry
+    ) {
         this.currentUserService = currentUserService;
+        // Live count of open sockets (authenticated + anonymous), for dashboards.
+        Gauge.builder("websocket.connections.active", allSessions, Set::size)
+            .description("Open WebSocket connections")
+            .register(meterRegistry);
     }
 
     @Override

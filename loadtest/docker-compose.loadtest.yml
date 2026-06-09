@@ -1,0 +1,12 @@
+# Overlay for load testing: relaxes the API + signup rate limits so the
+# benchmark measures the engine, not the throttle. Use ONLY for benchmarking.
+#
+#   docker compose -f docker-compose.yml -f loadtest/docker-compose.loadtest.yml up --build
+services:
+  backend:
+    environment:
+      # Effectively unlimited request + signup rate for the duration of the test.
+      RATELIMIT_CAPACITY: "1000000000"
+      RATELIMIT_REFILL_PER_SECOND: "1000000000"
+      SIGNUP_RATELIMIT_BURST: "1000000"
+      SIGNUP_RATELIMIT_PER_HOUR: "1000000000"

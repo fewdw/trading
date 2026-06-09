@@ -3,6 +3,7 @@ package com.ufc.server.config;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -20,15 +21,24 @@ import org.springframework.web.servlet.HandlerInterceptor;
 @Component
 public class RateLimitInterceptor implements HandlerInterceptor {
 
-    /** Max burst: tokens one client can spend back-to-back. */
-    private static final double CAPACITY = 300;
-    /** Sustained refill rate per second (=> ~600 requests/minute). */
-    private static final double REFILL_PER_SECOND = 10;
     /** Safety valve so the bucket map can't grow without bound. */
     private static final int MAX_TRACKED_CLIENTS = 50_000;
 
+    /** Max burst: tokens one client can spend back-to-back (default 300). */
+    private final double capacity;
+    /** Sustained refill rate per second (default 10 => ~600 requests/minute). */
+    private final double refillPerSecond;
+
     private final ConcurrentHashMap<String, Bucket> buckets =
         new ConcurrentHashMap<>();
+
+    public RateLimitInterceptor(
+        @Value("${ratelimit.capacity:300}") double capacity,
+        @Value("${ratelimit.refill-per-second:10}") double refillPerSecond
+    ) {
+        this.capacity = capacity;
+        this.refillPerSecond = refillPerSecond;
+    }
 
     @Override
     public boolean preHandle(
@@ -41,7 +51,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         }
         Bucket bucket = buckets.computeIfAbsent(
             clientKey(request),
-            k -> new Bucket()
+            k -> new Bucket(capacity, refillPerSecond)
         );
         if (bucket.tryConsume()) {
             return true;
@@ -77,8 +87,16 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     /** A single token bucket. Synchronized: per-key contention is trivial. */
     private static final class Bucket {
 
-        private double tokens = CAPACITY;
+        private final double capacity;
+        private final double refillPerSecond;
+        private double tokens;
         private long lastRefillNanos = System.nanoTime();
+
+        Bucket(double capacity, double refillPerSecond) {
+            this.capacity = capacity;
+            this.refillPerSecond = refillPerSecond;
+            this.tokens = capacity;
+        }
 
         synchronized boolean tryConsume() {
             refill();
@@ -94,7 +112,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             if (tokens >= 1) {
                 return 0;
             }
-            return (long) Math.ceil((1 - tokens) / REFILL_PER_SECOND);
+            return (long) Math.ceil((1 - tokens) / refillPerSecond);
         }
 
         private void refill() {
@@ -104,8 +122,8 @@ public class RateLimitInterceptor implements HandlerInterceptor {
                 return;
             }
             tokens = Math.min(
-                CAPACITY,
-                tokens + elapsedSeconds * REFILL_PER_SECOND
+                capacity,
+                tokens + elapsedSeconds * refillPerSecond
             );
             lastRefillNanos = now;
         }

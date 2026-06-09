@@ -15,6 +15,7 @@ import com.ufc.server.trade.Trade;
 import com.ufc.server.trade.TradeRepository;
 import com.ufc.server.user.User;
 import com.ufc.server.user.UserRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -89,7 +90,8 @@ class OrderEngineTest extends PostgresTestcontainer {
             holdings,
             orders,
             trades,
-            NO_EVENTS
+            NO_EVENTS,
+            new SimpleMeterRegistry()
         );
         fighter = newFighter(1_000);
     }

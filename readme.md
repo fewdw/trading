@@ -1,5 +1,9 @@
 # Fighter Market
 
+## Live Deploy
+
+[Live Deployed URL](https://client-production-2c9e.up.railway.app)
+
 [![CI](https://github.com/fewdw/trading/actions/workflows/ci.yml/badge.svg)](https://github.com/fewdw/trading/actions/workflows/ci.yml)
 
 A real-time fantasy stock market for UFC fighters: a custom limit-order matching

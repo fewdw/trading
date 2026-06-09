@@ -4,7 +4,7 @@
 
 A real-time fantasy stock market for UFC fighters: a custom limit-order matching
 engine (market/limit orders, price-time priority, an aggregated order book) with
-live price and balance updates over WebSockets. You can check out the live deploy [here]([Live Deployed URL](https://client-production-2c9e.up.railway.app))
+live price and balance updates over WebSockets. You can check out the live deploy [here](https://client-production-2c9e.up.railway.app))
 
 **Stack:** Spring Boot (Java) · Postgres · Next.js (React) · Python scraper · Docker.
 

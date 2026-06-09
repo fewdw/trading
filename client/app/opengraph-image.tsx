@@ -17,14 +17,14 @@ export default function OpengraphImage() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
-          padding: "80px",
+          padding: "72px",
           background: BRAND_DARK,
           color: "#ffffff",
           fontFamily: "sans-serif",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          <svg width="88" height="88" viewBox="0 0 32 32" fill="none">
+        <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
+          <svg width="80" height="80" viewBox="0 0 32 32" fill="none">
             <rect width="32" height="32" rx="7" fill="#161616" />
             <path
               d="M5.5 20.5 L13 13 L18 17.5 L26.5 8"
@@ -49,10 +49,11 @@ export default function OpengraphImage() {
         <div
           style={{
             display: "flex",
-            fontSize: 86,
+            fontSize: 72,
             fontWeight: "bold",
-            marginTop: 44,
-            lineHeight: 1.1,
+            marginTop: 36,
+            lineHeight: 1.05,
+            maxWidth: 1000,
           }}
         >
           Trade shares in UFC fighters.
@@ -61,17 +62,18 @@ export default function OpengraphImage() {
         <div
           style={{
             display: "flex",
-            fontSize: 34,
+            fontSize: 32,
             color: "#a1a1aa",
-            marginTop: 28,
-            maxWidth: 920,
+            marginTop: 24,
+            lineHeight: 1.35,
+            maxWidth: 900,
           }}
         >
           Start with free coins. Buy and sell on a live order book. Climb the
           leaderboard.
         </div>
 
-        <div style={{ display: "flex", marginTop: 52 }}>
+        <div style={{ display: "flex", marginTop: 40 }}>
           <div
             style={{
               display: "flex",

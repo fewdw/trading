@@ -81,7 +81,9 @@ public class OrderService {
             .description("Matched trades (fills)")
             .register(meterRegistry);
         this.rejectedCounter = Counter.builder("engine.order.rejected")
-            .description("Order placements rejected (bad funds/shares/liquidity)")
+            .description(
+                "Order placements rejected (bad funds/shares/liquidity)"
+            )
             .register(meterRegistry);
     }
 

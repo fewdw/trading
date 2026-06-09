@@ -1,6 +1,5 @@
 .venv
 .env
-todo.md
 .DS_Store
 __pycache__
 .claude

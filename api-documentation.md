@@ -69,8 +69,8 @@ login (a session token + user).
 
 | Field | Rules |
 |-------|-------|
-| `username` | 3–30 chars, letters/numbers/underscores, unique |
-| `password` | 8–72 chars, not equal to the username |
+| `username` | 3–30 chars, letters/numbers/underscores, **case-insensitively unique**, not a reserved name (`admin`, `root`, the treasury account, …) |
+| `password` | 8–72 chars, not equal to the username, not a common/guessable password (block-list), not a single repeated character |
 
 **Response `200 OK`**
 ```json
@@ -80,11 +80,16 @@ login (a session token + user).
 }
 ```
 
+Account creation is additionally throttled per client IP (a small burst,
+refilling ~5/hour) on top of the global API rate limit, to blunt automated /
+abusive sign-ups.
+
 | Code | When |
 |------|------|
 | `200` | Created and logged in; session issued |
-| `400` | Validation failure (message names the field) |
-| `409` | `username taken` |
+| `400` | Validation failure (message names the field), reserved username, or weak password |
+| `409` | `username taken` (case-insensitive) |
+| `429` | `too many sign-ups from here` (per-IP signup throttle) |
 
 ---
 
@@ -289,6 +294,52 @@ orders. The internal treasury account has no public profile.
 |------|------|
 | `200` | OK |
 | `404` | `user not found` (unknown username, or the treasury account) |
+
+---
+
+### GET `/api/users/{username}/history`
+
+Hourly portfolio snapshots for the user, oldest first, covering the last 30
+days. Recorded by a scheduled task on the top of every hour. Powers the
+"Portfolio over time" chart (holdings value and total P&L). All amounts are in
+sub-units. Total P&L for a point is `realizedPnl + unrealizedPnl`.
+
+**Response `200 OK`**
+```json
+[
+  {
+    "capturedAt": "2026-06-08T12:00:00Z",
+    "holdingsValue": 4500,
+    "realizedPnl": 1200,
+    "unrealizedPnl": -300
+  }
+]
+```
+
+An empty array means no snapshots exist yet (e.g. before the first hourly run).
+
+| Code | When |
+|------|------|
+| `200` | OK |
+| `404` | `user not found` (unknown username, or the treasury account) |
+
+---
+
+## Leaderboard — `/api/leaderboard` (public, no auth)
+
+### GET `/api/leaderboard`
+
+The top 10 holders ranked by mark-to-market holdings value (highest first). The
+internal treasury account is excluded. `rank` is 1-based; `holdingsValue` is in
+sub-units.
+
+**Response `200 OK`**
+```json
+[
+  { "rank": 1, "username": "conor", "holdingsValue": 1250000 },
+  { "rank": 2, "username": "khabib", "holdingsValue": 980000 }
+]
+```
 
 ---
 
@@ -587,6 +638,8 @@ refetch the book/trades. All events fire **after** the DB transaction commits.
 | GET | `/api/fighters/{id}/orderbook` | – | Aggregated book |
 | GET | `/api/fighters/{id}/trades` | – | Recent trades |
 | GET | `/api/users/{username}/profile` | – | Public profile (holdings, P&L, trades, orders) |
+| GET | `/api/users/{username}/history` | – | Hourly portfolio snapshots (holdings value + P&L) |
+| GET | `/api/leaderboard` | – | Top 10 holders by portfolio value |
 | POST | `/api/orders` | ✓ | Place buy/sell order |
 | DELETE | `/api/orders/{id}` | ✓ | Cancel order |
 | GET | `/api/orders` | ✓ | List your orders |

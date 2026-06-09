@@ -122,30 +122,17 @@ export default function PlaceOrderForm({
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => setType("MARKET")}
-          className={`${base} ${
-            type === "MARKET"
-              ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
-              : "border-zinc-300 dark:border-zinc-700"
-          }`}
+      <label className="flex flex-col gap-1 text-sm">
+        Order type
+        <select
+          value={type}
+          onChange={(e) => setType(e.target.value as "LIMIT" | "MARKET")}
+          className={input}
         >
-          Market
-        </button>
-        <button
-          type="button"
-          onClick={() => setType("LIMIT")}
-          className={`${base} ${
-            type === "LIMIT"
-              ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
-              : "border-zinc-300 dark:border-zinc-700"
-          }`}
-        >
-          Limit
-        </button>
-      </div>
+          <option value="MARKET">Market</option>
+          <option value="LIMIT">Limit</option>
+        </select>
+      </label>
 
       <label className="flex flex-col gap-1 text-sm">
         Quantity (shares)

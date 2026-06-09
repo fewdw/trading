@@ -22,6 +22,14 @@ const websiteJsonLd = {
 export default async function Home() {
   const [user, fighters] = await Promise.all([getCurrentUser(), getFighters()]);
 
+  // Most expensive first. Array.prototype.sort is stable, so fighters at the
+  // same price keep their original order. This runs at request time (the page is
+  // force-dynamic), so the order is fixed per page load — live price ticks update
+  // the numbers in place but never reorder until the next refresh.
+  const sortedFighters = [...fighters].sort(
+    (a, b) => b.lastPrice - a.lastPrice,
+  );
+
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
       <JsonLd data={websiteJsonLd} />
@@ -45,12 +53,12 @@ export default async function Home() {
         </div>
       </div>
 
-      {fighters.length === 0 ? (
+      {sortedFighters.length === 0 ? (
         <p className="text-sm text-zinc-500">
           No fighters available right now.
         </p>
       ) : (
-        <FighterGrid fighters={fighters} />
+        <FighterGrid fighters={sortedFighters} />
       )}
     </main>
   );

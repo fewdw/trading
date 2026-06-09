@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Optional;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,6 +32,44 @@ public class AuthService {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final Duration SESSION_TTL = Duration.ofDays(7);
 
+    /** Names that must never be claimed by a sign-up (impersonation/abuse). */
+    private static final Set<String> RESERVED_USERNAMES = Set.of(
+        "admin",
+        "administrator",
+        "root",
+        "system",
+        "treasury",
+        "moderator",
+        "support",
+        "fightermarket"
+    );
+
+    /**
+     * A small block-list of the most common/guessable passwords. Field-level
+     * validation already enforces length; this stops the obvious weak choices a
+     * length rule alone lets through. Mirrors the client's check.
+     */
+    private static final Set<String> WEAK_PASSWORDS = Set.of(
+        "password",
+        "password1",
+        "password123",
+        "12345678",
+        "123456789",
+        "1234567890",
+        "qwertyui",
+        "qwerty123",
+        "11111111",
+        "00000000",
+        "iloveyou",
+        "baseball",
+        "football",
+        "welcome1",
+        "admin123",
+        "letmein1",
+        "abc12345",
+        "fighter1"
+    );
+
     private final UserRepository userRepository;
     private final SessionRepository sessionRepository;
     private final PasswordEncoder passwordEncoder;
@@ -50,22 +89,39 @@ public class AuthService {
     @Transactional
     public LoginResult signup(SignupDTO dto) {
         String username = dto.username().trim();
+        String password = dto.password();
 
         // Logical checks the field-level annotations can't express.
-        if (dto.password().equalsIgnoreCase(username)) {
+        if (password.equalsIgnoreCase(username)) {
             throw new AuthException(
                 HttpStatus.BAD_REQUEST,
                 "password cannot be the same as your username"
             );
         }
+        if (isWeakPassword(password)) {
+            throw new AuthException(
+                HttpStatus.BAD_REQUEST,
+                "password is too common — choose something harder to guess"
+            );
+        }
+        if (
+            RESERVED_USERNAMES.contains(username.toLowerCase()) ||
+            username.equalsIgnoreCase(TreasurySeederTask.TREASURY_USERNAME)
+        ) {
+            throw new AuthException(
+                HttpStatus.BAD_REQUEST,
+                "that username isn't available"
+            );
+        }
 
-        if (userRepository.existsByUsername(username)) {
+        // Case-insensitive so "Bob" can't be registered alongside "bob".
+        if (userRepository.existsByUsernameIgnoreCase(username)) {
             throw new AuthException(HttpStatus.CONFLICT, "username taken");
         }
 
         User user = new User();
         user.setUsername(username);
-        user.setPasswordHash(passwordEncoder.encode(dto.password()));
+        user.setPasswordHash(passwordEncoder.encode(password));
         user = userRepository.save(user);
         log.info("New user signed up: {} (id={})", username, user.getId());
 
@@ -95,6 +151,14 @@ public class AuthService {
 
         User user = maybeUser.get();
         return new LoginResult(createSession(user.getId()), user);
+    }
+
+    /** Rejects the most common passwords and trivially uniform ones (all one char). */
+    private boolean isWeakPassword(String password) {
+        return (
+            WEAK_PASSWORDS.contains(password.toLowerCase()) ||
+            password.chars().distinct().count() == 1
+        );
     }
 
     private String createSession(Long userId) {

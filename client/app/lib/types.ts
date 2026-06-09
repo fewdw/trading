@@ -55,3 +55,18 @@ export type Order = {
   status: "OPEN" | "PARTIAL" | "FILLED" | "CANCELLED";
   createdAt: string;
 };
+
+/** One hourly point on a profile's portfolio-history chart. Money in sub-units. */
+export type PortfolioSnapshot = {
+  capturedAt: string;
+  holdingsValue: number;
+  realizedPnl: number;
+  unrealizedPnl: number;
+};
+
+/** One row of the top-holders leaderboard. Money in sub-units. */
+export type LeaderboardEntry = {
+  rank: number;
+  username: string;
+  holdingsValue: number;
+};

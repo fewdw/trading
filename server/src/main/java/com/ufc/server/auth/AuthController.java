@@ -3,6 +3,7 @@ package com.ufc.server.auth;
 import com.ufc.server.dto.LoginDTO;
 import com.ufc.server.dto.SignupDTO;
 import com.ufc.server.user.User;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,20 +26,32 @@ public class AuthController {
     private final AuthService authService;
     private final CurrentUserService currentUserService;
     private final SessionRepository sessionRepository;
+    private final SignupRateLimiter signupRateLimiter;
 
     public AuthController(
         AuthService authService,
         CurrentUserService currentUserService,
-        SessionRepository sessionRepository
+        SessionRepository sessionRepository,
+        SignupRateLimiter signupRateLimiter
     ) {
         this.authService = authService;
         this.currentUserService = currentUserService;
         this.sessionRepository = sessionRepository;
+        this.signupRateLimiter = signupRateLimiter;
     }
 
     /** Create an account and log in immediately, returning a session token. */
     @PostMapping("/signup")
-    public ResponseEntity<?> signup(@Valid @RequestBody SignupDTO dto) {
+    public ResponseEntity<?> signup(
+        @Valid @RequestBody SignupDTO dto,
+        HttpServletRequest request
+    ) {
+        if (!signupRateLimiter.tryAcquire(request)) {
+            throw new AuthException(
+                HttpStatus.TOO_MANY_REQUESTS,
+                "too many sign-ups from here — please try again later"
+            );
+        }
         AuthService.LoginResult result = authService.signup(dto);
         return ResponseEntity.ok(
             authResponse(result.token(), result.user())

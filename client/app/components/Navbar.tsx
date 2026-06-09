@@ -7,10 +7,12 @@ import SearchBar from "./SearchBar";
 export default async function Navbar() {
   const user = await getCurrentUser();
   return (
-    // Three equal columns keep the search bar at the true centre of the page,
+    // On phones this wraps: brand + account share the top row and the search
+    // drops to its own full-width row below. From `sm` up it's three equal
+    // columns, which keeps the search bar at the true centre of the page
     // regardless of how wide the logo (left) or account controls (right) are.
-    <nav className="grid grid-cols-3 items-center gap-4 border-b border-zinc-200 bg-white px-6 py-3 dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="flex min-w-0 items-center gap-4">
+    <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-zinc-200 bg-white px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="flex min-w-0 flex-1 items-center gap-3 sm:flex-none sm:gap-4">
         <Link
           href="/"
           className="flex shrink-0 items-center gap-2 font-semibold tracking-tight"
@@ -41,16 +43,22 @@ export default async function Navbar() {
           <span className="hidden sm:inline">Fighter Market</span>
         </Link>
         <Link
-          href="/about"
+          href="/leaderboard"
           className="shrink-0 text-sm text-zinc-500 hover:underline"
+        >
+          Leaderboard
+        </Link>
+        <Link
+          href="/about"
+          className="hidden shrink-0 text-sm text-zinc-500 hover:underline sm:inline"
         >
           About
         </Link>
       </div>
-      <div className="flex justify-center">
+      <div className="order-last flex w-full justify-center sm:order-none sm:w-auto">
         <SearchBar />
       </div>
-      <div className="flex min-w-0 shrink-0 items-center justify-end gap-4 text-sm">
+      <div className="flex min-w-0 items-center justify-end gap-2 text-sm sm:gap-4">
         {user ? (
           <>
             <CoinBalance
@@ -59,7 +67,7 @@ export default async function Navbar() {
             />
             <Link
               href={`/${user.username}`}
-              className="text-zinc-700 hover:underline dark:text-zinc-300"
+              className="max-w-[40vw] truncate text-zinc-700 hover:underline sm:max-w-none dark:text-zinc-300"
             >
               {user.username}
             </Link>

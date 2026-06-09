@@ -1,5 +1,5 @@
 import "server-only";
-import type { ProfileData } from "./types";
+import type { PortfolioSnapshot, ProfileData } from "./types";
 
 const BACKEND_URL = process.env.BACKEND_URL;
 
@@ -14,5 +14,21 @@ export async function getProfile(username: string): Promise<ProfileData | null> 
     return (await res.json()) as ProfileData;
   } catch {
     return null;
+  }
+}
+
+/** Hourly portfolio history for the profile chart (empty if none/unavailable). */
+export async function getProfileHistory(
+  username: string,
+): Promise<PortfolioSnapshot[]> {
+  try {
+    const res = await fetch(
+      `${BACKEND_URL}/api/users/${encodeURIComponent(username)}/history`,
+      { cache: "no-store", signal: AbortSignal.timeout(4000) },
+    );
+    if (!res.ok) return [];
+    return (await res.json()) as PortfolioSnapshot[];
+  } catch {
+    return [];
   }
 }

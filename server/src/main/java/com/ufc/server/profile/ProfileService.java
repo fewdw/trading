@@ -12,6 +12,7 @@ import com.ufc.server.order.OrderSide;
 import com.ufc.server.ranking.Fighter;
 import com.ufc.server.tasks.SalaryService;
 import com.ufc.server.tasks.TreasurySeederTask;
+import com.ufc.server.trade.RealizedPnlCalculator;
 import com.ufc.server.trade.Trade;
 import com.ufc.server.trade.TradeRepository;
 import com.ufc.server.user.User;
@@ -19,9 +20,7 @@ import com.ufc.server.user.UserRepository;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -80,7 +79,7 @@ public class ProfileService {
             .sum();
 
         List<Trade> trades = tradeRepository.findUserTradesChronological(user);
-        long realizedPnl = computeRealizedPnl(user, trades);
+        long realizedPnl = RealizedPnlCalculator.compute(user, trades);
 
         return new ProfileDto(
             user.getUsername(),
@@ -108,33 +107,6 @@ public class ProfileService {
             .limit(MAX_HISTORY)
             .map(OrderDto::from)
             .toList();
-    }
-
-    /**
-     * Replay the user's trades in order, tracking a running average cost per
-     * fighter. Each sell realizes {@code (price - avgCost) * qty} — the same
-     * average-cost basis the matching engine uses for holdings.
-     */
-    private long computeRealizedPnl(User user, List<Trade> trades) {
-        Map<Long, long[]> state = new HashMap<>(); // fighterId -> [qty, avgCost]
-        long realized = 0;
-        for (Trade t : trades) {
-            long fighterId = t.getFighter().getId();
-            long price = t.getPrice();
-            long qty = t.getQuantity();
-            long[] s = state.computeIfAbsent(fighterId, k -> new long[] { 0, 0 });
-
-            if (isBuyer(user, t)) {
-                long newQty = s[0] + qty;
-                long newBasis = s[0] * s[1] + qty * price;
-                s[1] = newQty > 0 ? newBasis / newQty : 0;
-                s[0] = newQty;
-            } else {
-                realized += (price - s[1]) * qty;
-                s[0] = Math.max(0, s[0] - qty);
-            }
-        }
-        return realized;
     }
 
     /** Trade history newest-first, capped at {@link #MAX_HISTORY}. */

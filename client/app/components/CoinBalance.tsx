@@ -61,7 +61,7 @@ export default function CoinBalance({ availableCoins, reservedCoins }: Props) {
 
   return (
     <span
-      className="flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 font-medium text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-400"
+      className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 font-medium text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-400"
       title={
         reserved > 0
           ? `${formatCoins(available)} coins available, ${formatCoins(reserved)} reserved`

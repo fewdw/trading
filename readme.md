@@ -51,6 +51,8 @@ A turnkey Prometheus + Grafana stack is in [`monitoring/`](monitoring) (with the
 PromQL for each panel). Set `LOG_STRUCTURED_FORMAT=ecs` to emit JSON structured
 logs to stdout in production.
 
+![Grafana dashboard showing live matching-engine metrics scraped from Prometheus](grafana.png)
+
 ## Load testing
 
 [`loadtest/`](loadtest) drives concurrent order placement with k6 and reports

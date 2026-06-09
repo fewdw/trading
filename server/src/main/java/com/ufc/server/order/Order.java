@@ -14,9 +14,11 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.time.Instant;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
 
 /** A buy or sell order. Open orders collectively form the order book. */
@@ -71,4 +73,16 @@ public class Order {
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
+
+    /**
+     * Optimistic-lock guard. Two orders matching against this same resting order
+     * concurrently both bump its version; the second to commit fails and rolls
+     * back, so a resting order can never be filled past its quantity (no
+     * overselling). {@code @ColumnDefault} backfills existing rows when the
+     * column is added.
+     */
+    @Version
+    @ColumnDefault("0")
+    @Column(nullable = false)
+    private long version;
 }

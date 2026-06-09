@@ -1,9 +1,7 @@
 ## Tier 2 — Depth differentiators
 
-- Idempotency keys on order placement — prevents double-submits; a real fintech concern and a clean thing to discuss.
-- Audit trail / event log of every order lifecycle transition — leans into the "financial system" credibility.
 - Caching layer (Redis) for hot reads (fighter list, order book) with explicit invalidation — classic interview topic.
-- DB depth: document your indexes, prove you've eliminated N+1s (you've got open-in-view=false already — good), explain optimistic-locking retry strategy.
+- DB depth: document your indexes, prove you've eliminated N+1s (you've got open-in-view=false already — good)
 
 ---
 ## Tier 3 — Flashy features

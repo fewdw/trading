@@ -44,7 +44,7 @@ class StrategyDirective(BaseModel):
         description="0 = very passive/small, 1 = very aggressive/large.",
     )
     max_position_per_fighter: int = Field(
-        50,
+        80,
         ge=0,
         description="Soft cap on shares to hold in any one fighter.",
     )
@@ -109,7 +109,7 @@ class Strategist:
         valid_ids = {f["id"] for f in snapshot.get("fighters", [])}
         d.focus_fighter_ids = [i for i in d.focus_fighter_ids if i in valid_ids][:5]
         d.aggressiveness = max(0.0, min(1.0, d.aggressiveness))
-        d.max_position_per_fighter = max(0, min(200, d.max_position_per_fighter))
+        d.max_position_per_fighter = max(0, min(400, d.max_position_per_fighter))
         d.reasoning = (d.reasoning or "")[:300]
         return d
 
@@ -126,7 +126,7 @@ class Strategist:
         return StrategyDirective(
             stance=stance,
             focus_fighter_ids=focus,
-            aggressiveness=round(random.uniform(0.55, 0.95), 2),
-            max_position_per_fighter=random.randint(40, 120),
+            aggressiveness=round(random.uniform(0.7, 1.0), 2),
+            max_position_per_fighter=random.randint(90, 250),
             reasoning="heuristic fallback (no LLM directive)",
         )

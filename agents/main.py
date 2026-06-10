@@ -45,10 +45,15 @@ class Config:
     tick_seconds: float
     refresh_seconds: float
     max_fighters: int
+    trade_rate: float
     exec_cfg: ExecConfig
 
     @staticmethod
     def from_env() -> "Config":
+        # One knob to dial the whole fleet up or down: <1 = fewer/smaller/slower
+        # trades, >1 = more orders per tick, bigger size, harder price pushes, and
+        # faster ticks. Clamped to a sane band so a typo can't wedge the loop.
+        trade_rate = max(0.1, min(8.0, float(_env("TRADE_RATE", "1.5"))))
         return Config(
             backend_url=_env("BACKEND_URL", "http://localhost:8080"),
             admin_api_key=_env("ADMIN_API_KEY", required=True),
@@ -57,9 +62,11 @@ class Config:
             tick_seconds=float(_env("AGENT_TICK_SECONDS", "30")),
             refresh_seconds=float(_env("STRATEGY_REFRESH_SECONDS", "240")),
             max_fighters=int(_env("MAX_FIGHTERS", "20")),
+            trade_rate=trade_rate,
             exec_cfg=ExecConfig(
-                base_qty=int(_env("BASE_QTY", "8")),
-                order_ttl_seconds=float(_env("ORDER_TTL_SECONDS", "60")),
+                base_qty=int(_env("BASE_QTY", "14")),
+                order_ttl_seconds=float(_env("ORDER_TTL_SECONDS", "45")),
+                trade_rate=trade_rate,
             ),
         )
 
@@ -180,8 +187,9 @@ def main() -> None:
     client = MarketClient(cfg.backend_url, cfg.admin_api_key)
     strategist = Strategist(cfg.gemini_api_key, cfg.gemini_model)
     agents = provision_all(client, cfg.refresh_seconds)
-    log.info("%d agents live; tick=%ss refresh=%ss llm=%s",
-             len(agents), cfg.tick_seconds, cfg.refresh_seconds, strategist.llm_enabled)
+    log.info("%d agents live; tick=%ss refresh=%ss trade_rate=%.2f llm=%s",
+             len(agents), cfg.tick_seconds, cfg.refresh_seconds,
+             cfg.trade_rate, strategist.llm_enabled)
 
     try:
         while True:
@@ -206,8 +214,11 @@ def main() -> None:
                     except Exception:
                         log.exception("agent %s tick failed", agent.persona.username)
 
+            # Higher TRADE_RATE also ticks faster (more frequent action), not
+            # just bigger orders per tick.
             elapsed = time.monotonic() - tick_start
-            time.sleep(max(1.0, cfg.tick_seconds - elapsed))
+            interval = cfg.tick_seconds / cfg.trade_rate
+            time.sleep(max(0.5, interval - elapsed))
     except KeyboardInterrupt:
         log.info("shutting down")
     finally:

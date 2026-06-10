@@ -9,6 +9,7 @@ import { formatCoins } from "../lib/format";
 import OrderStatusBadge from "../components/OrderStatusBadge";
 import ThemeToggle from "../components/ThemeToggle";
 import ProfilePortfolio from "../components/ProfilePortfolio";
+import ProfileCoins from "../components/ProfileCoins";
 import PortfolioChart from "../components/PortfolioChart";
 
 // Shared by generateMetadata and the page so the profile is fetched once.
@@ -100,6 +101,8 @@ export default async function ProfilePage({
         </div>
         {isOwnProfile && <ThemeToggle />}
       </div>
+
+      <ProfileCoins username={profile.username} totalCoins={profile.totalCoins} />
 
       <ProfilePortfolio profile={profile} isOwnProfile={isOwnProfile} />
 

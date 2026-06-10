@@ -84,6 +84,7 @@ public class ProfileService {
         return new ProfileDto(
             user.getUsername(),
             user.isBot(),
+            user.getAvailableCoins() + user.getReservedCoins(),
             realizedPnl,
             unrealizedPnl,
             holdingsValue,

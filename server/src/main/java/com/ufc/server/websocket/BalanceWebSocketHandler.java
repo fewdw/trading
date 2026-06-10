@@ -113,13 +113,45 @@ public class BalanceWebSocketHandler extends TextWebSocketHandler {
 
     /** Broadcast a market change to every connected client (incl. logged-out). */
     public void broadcastMarketUpdate(Long fighterId, long lastPrice) {
-        TextMessage message = new TextMessage(
+        broadcast(
             "{\"type\":\"MARKET_UPDATE\",\"fighterId\":" +
             fighterId +
             ",\"lastPrice\":" +
             lastPrice +
             "}"
         );
+    }
+
+    /**
+     * Broadcast a user's live spend/income to every connected client, so any open
+     * profile page for that user can update its coin total in real time. Public on
+     * purpose: a profile is public, and the frame carries no private data beyond
+     * the (already public) username and total balance. {@code username} is a
+     * validated simple handle (letters/digits/underscore), so it needs no JSON
+     * escaping — same assumption the rest of this handler makes.
+     */
+    public void broadcastSpendUpdate(
+        String username,
+        long totalCoins,
+        long delta,
+        String fighterName
+    ) {
+        broadcast(
+            "{\"type\":\"SPEND_UPDATE\",\"username\":\"" +
+            username +
+            "\",\"totalCoins\":" +
+            totalCoins +
+            ",\"delta\":" +
+            delta +
+            ",\"fighter\":\"" +
+            jsonEscape(fighterName) +
+            "\"}"
+        );
+    }
+
+    /** Send a frame to every open socket; drops any that error out. */
+    private void broadcast(String json) {
+        TextMessage message = new TextMessage(json);
         for (WebSocketSession session : allSessions) {
             try {
                 synchronized (session) {
@@ -131,6 +163,14 @@ public class BalanceWebSocketHandler extends TextWebSocketHandler {
                 // Broken pipe etc. — drop it; close handler will clean up.
             }
         }
+    }
+
+    /** Minimal escaping for free-text fields (fighter names) embedded in JSON. */
+    private static String jsonEscape(String s) {
+        if (s == null) {
+            return "";
+        }
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private Long resolveUserId(WebSocketSession session) {

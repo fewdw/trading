@@ -225,9 +225,11 @@ Recent trade tape (latest 50, newest first).
 
 ### GET `/api/users/{username}/profile`
 
-A user's public profile: holdings marked to market, realized/unrealized P&L, the
-executed trade tape, and the full order history. `realizedPnl` is computed by
-replaying the user's trades with average-cost accounting (the same basis
+A user's public profile: their total coin balance, holdings marked to market,
+realized/unrealized P&L, the executed trade tape, and the full order history.
+`totalCoins` is the user's whole coin balance — available plus the portion
+reserved against open buy orders — as a single amount. `realizedPnl` is computed
+by replaying the user's trades with average-cost accounting (the same basis
 holdings use). All amounts are in sub-units.
 
 **Response `200 OK`**
@@ -235,6 +237,7 @@ holdings use). All amounts are in sub-units.
 {
   "username": "conor",
   "isBot": false,
+  "totalCoins": 100000,
   "realizedPnl": 1200,
   "unrealizedPnl": -300,
   "holdingsValue": 4500,
@@ -639,8 +642,9 @@ Not under `/api`, so it is **not** rate limited. Connect to `ws://<host>:8080/ws
 
 **Auth:** the handshake is authenticated by the httpOnly `session` cookie, sent
 automatically by the browser (a `?token=<sessionToken>` query param is also
-accepted for non-browser clients). Sockets that don't resolve to a logged-in
-user are closed immediately with `1008` (policy violation).
+accepted for non-browser clients). Anonymous sockets stay connected and receive
+the public broadcasts (`MARKET_UPDATE`, `SPEND_UPDATE`); only the private
+`BALANCE_UPDATE` requires a resolved user.
 
 **Messages (server → client):** JSON text frames. Switch on `type` and ignore
 unknown types. All amounts are in sub-units.
@@ -657,6 +661,15 @@ after they place/cancel an order. Matches the numbers from `/api/auth/me`.
 Broadcast to all connected clients when a fighter's order book or price changes
 (any order placed, cancelled, or filled). Clients viewing that fighter should
 refetch the book/trades. All events fire **after** the DB transaction commits.
+
+```json
+{ "type": "SPEND_UPDATE", "username": "momentum_ai", "totalCoins": 98800, "delta": -1200, "fighter": "Jon Jones" }
+```
+Broadcast to all connected clients when a user's **total** coin balance changes
+from a fill — so any open profile page for that user updates its coin total live.
+`delta` is signed: negative when the user spent coins (a buy filled), positive
+when they took coins in (a sell filled). `totalCoins` is the new available +
+reserved balance. Clients viewing `/<username>` filter on `username`.
 
 ---
 
@@ -686,7 +699,7 @@ refetch the book/trades. All events fire **after** the DB transaction commits.
 | PUT | `/api/preferences` | ✓ | Update UI preferences (dark mode) |
 | POST | `/api/admin/coins` | API key | Credit a user with coins |
 | POST | `/api/admin/agents` | API key | Provision an AI agent + get a session token |
-| WS | `/ws` | cookie | Live balance updates |
+| WS | `/ws` | cookie | Live balance, market, and spend updates |
 
 ## Example: a full trade flow
 

@@ -53,11 +53,22 @@ token. The agent then trades with that bearer token like any user.
 | `ADMIN_API_KEY` | — (required) | Same key the backend uses; provisions agents |
 | `GEMINI_API_KEY` | — | From Google AI Studio. Blank → heuristic fallback |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Use a Flash model for cost |
-| `AGENT_TICK_SECONDS` | `30` | How often each agent acts |
+| `TRADE_RATE` | `1.5` | **The market-liveliness knob.** `<1` = fewer/smaller/slower trades; `>1` = more orders per tick, bigger size, harder price pushes, faster ticks. Clamped to `0.1`–`8.0` |
+| `AGENT_TICK_SECONDS` | `30` | Base tick period; the effective period is `AGENT_TICK_SECONDS / TRADE_RATE` |
 | `STRATEGY_REFRESH_SECONDS` | `240` | How often Gemini re-strategizes per agent |
 | `MAX_FIGHTERS` | `20` | Size of the tradable universe per tick |
-| `BASE_QTY` | `5` | Base order size (scaled by aggressiveness) |
-| `ORDER_TTL_SECONDS` | `90` | Resting orders older than this are re-quoted |
+| `BASE_QTY` | `14` | Base order size (scaled by persona size, conviction, and `TRADE_RATE`) |
+| `ORDER_TTL_SECONDS` | `45` | Resting orders older than this are re-quoted |
+
+### Aggression & personalities
+
+Each persona carries an `aggression` and `size` temperament (`personas.py`) on top
+of its LLM prompt, so they behave concretely differently in the executor — e.g.
+`breakout_ai` blows through offers to grab size, `marketmaker_ai` quotes both
+sides in real size, `value_ai` mostly rests patient orders. Aggressive **takers**
+walk the book several price levels per order (lifting offers on the way up,
+hitting bids on the way down), which is what actually moves the chart. All of it
+scales with `TRADE_RATE`.
 
 ## Run
 

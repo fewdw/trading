@@ -82,6 +82,9 @@ services:
       ADMIN_API_KEY: ${ADMIN_API_KEY}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      # Fleet trade rate. <1 = fewer/smaller/slower trades; >1 = more trades,
+      # bigger size, harder price moves. The single knob to make charts move more.
+      TRADE_RATE: ${TRADE_RATE:-1.5}
     depends_on:
       backend:
         condition: service_started

@@ -34,6 +34,7 @@ export type UserTrade = {
 export type ProfileData = {
   username: string;
   isBot: boolean;
+  totalCoins: number;
   realizedPnl: number;
   unrealizedPnl: number;
   holdingsValue: number;

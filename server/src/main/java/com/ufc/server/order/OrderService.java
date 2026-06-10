@@ -13,6 +13,7 @@ import com.ufc.server.user.User;
 import com.ufc.server.user.UserRepository;
 import com.ufc.server.websocket.BalanceUpdateEvent;
 import com.ufc.server.websocket.MarketUpdateEvent;
+import com.ufc.server.websocket.SpendEvent;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -88,11 +89,22 @@ public class OrderService {
     }
 
     /**
-     * Publish post-commit realtime events: the actor's new balance (live navbar)
-     * and a market-changed broadcast (open fighter pages refresh their book).
+     * Publish post-commit realtime events: the actor's new balance (live navbar),
+     * a market-changed broadcast (open fighter pages refresh their book), and —
+     * when the actor's total coins actually moved — a public spend broadcast so
+     * any open profile page for this user updates its coin total live.
      * Counterparties' balances refresh on their next page load.
+     *
+     * @param totalCoinsBefore the actor's available+reserved coins before this
+     *                         action, used to derive the signed spend delta
      */
-    private void publishRealtime(User actor, Fighter fighter) {
+    private void publishRealtime(
+        User actor,
+        Fighter fighter,
+        long totalCoinsBefore
+    ) {
+        long totalCoinsAfter =
+            actor.getAvailableCoins() + actor.getReservedCoins();
         eventPublisher.publishEvent(
             new BalanceUpdateEvent(
                 actor.getId(),
@@ -103,6 +115,20 @@ public class OrderService {
         eventPublisher.publishEvent(
             new MarketUpdateEvent(fighter.getId(), fighter.getLastPrice())
         );
+        // Only a fill moves the total (reserving/releasing just shuffles coins
+        // between available and reserved); skip the broadcast when nothing spent.
+        long delta = totalCoinsAfter - totalCoinsBefore;
+        if (delta != 0) {
+            eventPublisher.publishEvent(
+                new SpendEvent(
+                    actor.getId(),
+                    actor.getUsername(),
+                    totalCoinsAfter,
+                    delta,
+                    fighter.getName()
+                )
+            );
+        }
     }
 
     // ------------------------------------------------------------------
@@ -128,6 +154,8 @@ public class OrderService {
     private OrderDto doPlaceOrder(User caller, PlaceOrderDTO dto) {
         User actor = requireActor(caller);
         Fighter fighter = requireTradableFighter(dto.fighterId());
+        long totalCoinsBefore =
+            actor.getAvailableCoins() + actor.getReservedCoins();
 
         OrderType type = dto.type();
         Order order = new Order();
@@ -167,7 +195,7 @@ public class OrderService {
             );
         }
 
-        publishRealtime(actor, fighter);
+        publishRealtime(actor, fighter, totalCoinsBefore);
         return OrderDto.from(order);
     }
 
@@ -433,6 +461,8 @@ public class OrderService {
     @Transactional
     public OrderDto cancelOrder(User caller, Long orderId) {
         User actor = requireActor(caller);
+        long totalCoinsBefore =
+            actor.getAvailableCoins() + actor.getReservedCoins();
         Order order = orderRepository
             .findById(orderId)
             .orElseThrow(() ->
@@ -474,7 +504,7 @@ public class OrderService {
             );
         }
         order.setStatus(OrderStatus.CANCELLED);
-        publishRealtime(actor, order.getFighter());
+        publishRealtime(actor, order.getFighter(), totalCoinsBefore);
         return OrderDto.from(order);
     }
 

@@ -30,4 +30,14 @@ public class RealtimeEventListener {
     public void onMarketUpdate(MarketUpdateEvent event) {
         handler.broadcastMarketUpdate(event.fighterId(), event.lastPrice());
     }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onSpendUpdate(SpendEvent event) {
+        handler.broadcastSpendUpdate(
+            event.username(),
+            event.totalCoins(),
+            event.delta(),
+            event.fighterName()
+        );
+    }
 }

@@ -5,6 +5,8 @@ import java.util.List;
 
 /**
  * A user's public profile. All money in sub-units (1 coin = 100).
+ * {@code totalCoins} is the user's whole coin balance — available plus the
+ * portion reserved against open buy orders — shown as a single amount.
  * {@code realizedPnl} is computed by replaying the user's trades with
  * average-cost accounting (matching how holdings track average price).
  *
@@ -18,6 +20,7 @@ import java.util.List;
 public record ProfileDto(
     String username,
     boolean isBot,
+    long totalCoins,
     long realizedPnl,
     long unrealizedPnl,
     long holdingsValue,

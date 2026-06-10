@@ -83,6 +83,7 @@ public class ProfileService {
 
         return new ProfileDto(
             user.getUsername(),
+            user.isBot(),
             realizedPnl,
             unrealizedPnl,
             holdingsValue,

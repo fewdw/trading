@@ -42,6 +42,15 @@ public class User {
     @ColumnDefault("false")
     private boolean darkMode = false;
 
+    /**
+     * True for autonomous AI trading agents (see the {@code agents} service).
+     * Bots are provisioned via {@code POST /api/admin/agents}; the flag is
+     * surfaced on the leaderboard and profile so the UI can mark them with a 🤖.
+     */
+    @Column(nullable = false)
+    @ColumnDefault("false")
+    private boolean isBot = false;
+
     @Version
     private long version;
 }

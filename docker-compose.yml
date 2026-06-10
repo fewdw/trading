@@ -27,6 +27,13 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SCRAPER_URL: ${SCRAPER_URL}
       ADMIN_API_KEY: ${ADMIN_API_KEY}
+      # Market tuning (optional; defaults applied if unset in .env).
+      FIGHTER_SEED_PRICE: ${FIGHTER_SEED_PRICE:-1250}
+      FIGHTER_SEED_SHARES: ${FIGHTER_SEED_SHARES:-1000}
+      PORTFOLIO_SNAPSHOTS_PER_HOUR: ${PORTFOLIO_SNAPSHOTS_PER_HOUR:-1}
+      # Salary: amount in sub-units, interval in days (1 = daily, 14 = biweekly).
+      SALARY_AMOUNT: ${SALARY_AMOUNT:-50000}
+      SALARY_INTERVAL_DAYS: ${SALARY_INTERVAL_DAYS:-14}
     ports:
       - "8080:8080"
     depends_on:
@@ -60,6 +67,24 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+  # Autonomous AI trading agents. Provisions ~10 bot accounts via the backend's
+  # admin endpoint, then trades through the public API to keep the market alive.
+  # Runs on a heuristic fallback if GEMINI_API_KEY is unset.
+  agents:
+    build:
+      context: ./agents
+    restart: unless-stopped
+    environment:
+      # RUN_WITH_AI=0 disables all AI trading (the service idles); 1 runs it.
+      RUN_WITH_AI: ${RUN_WITH_AI:-1}
+      BACKEND_URL: http://backend:8080
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+    depends_on:
+      backend:
+        condition: service_started
 
 volumes:
   postgres-data:

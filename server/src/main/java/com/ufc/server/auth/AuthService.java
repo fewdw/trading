@@ -5,10 +5,6 @@ import com.ufc.server.dto.SignupDTO;
 import com.ufc.server.tasks.TreasurySeederTask;
 import com.ufc.server.user.User;
 import com.ufc.server.user.UserRepository;
-import java.security.SecureRandom;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Base64;
 import java.util.Optional;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
@@ -28,9 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Service
 public class AuthService {
-
-    private static final SecureRandom RANDOM = new SecureRandom();
-    private static final Duration SESSION_TTL = Duration.ofDays(7);
 
     /** Names that must never be claimed by a sign-up (impersonation/abuse). */
     private static final Set<String> RESERVED_USERNAMES = Set.of(
@@ -71,16 +64,16 @@ public class AuthService {
     );
 
     private final UserRepository userRepository;
-    private final SessionRepository sessionRepository;
+    private final SessionService sessionService;
     private final PasswordEncoder passwordEncoder;
 
     public AuthService(
         UserRepository userRepository,
-        SessionRepository sessionRepository,
+        SessionService sessionService,
         PasswordEncoder passwordEncoder
     ) {
         this.userRepository = userRepository;
-        this.sessionRepository = sessionRepository;
+        this.sessionService = sessionService;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -125,7 +118,7 @@ public class AuthService {
         user = userRepository.save(user);
         log.info("New user signed up: {} (id={})", username, user.getId());
 
-        return new LoginResult(createSession(user.getId()), user);
+        return new LoginResult(sessionService.createSession(user.getId()), user);
     }
 
     @Transactional
@@ -150,7 +143,7 @@ public class AuthService {
         }
 
         User user = maybeUser.get();
-        return new LoginResult(createSession(user.getId()), user);
+        return new LoginResult(sessionService.createSession(user.getId()), user);
     }
 
     /** Rejects the most common passwords and trivially uniform ones (all one char). */
@@ -159,19 +152,5 @@ public class AuthService {
             WEAK_PASSWORDS.contains(password.toLowerCase()) ||
             password.chars().distinct().count() == 1
         );
-    }
-
-    private String createSession(Long userId) {
-        byte[] bytes = new byte[32];
-        RANDOM.nextBytes(bytes);
-        String token = Base64.getUrlEncoder()
-            .withoutPadding()
-            .encodeToString(bytes);
-        Session session = new Session();
-        session.setToken(token);
-        session.setUserId(userId);
-        session.setExpiresAt(Instant.now().plus(SESSION_TTL));
-        sessionRepository.save(session);
-        return token;
     }
 }

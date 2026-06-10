@@ -33,6 +33,7 @@ export type UserTrade = {
 
 export type ProfileData = {
   username: string;
+  isBot: boolean;
   realizedPnl: number;
   unrealizedPnl: number;
   holdingsValue: number;
@@ -69,4 +70,5 @@ export type LeaderboardEntry = {
   rank: number;
   username: string;
   holdingsValue: number;
+  isBot: boolean;
 };

@@ -68,7 +68,19 @@ export default async function ProfilePage({
             {profile.username.charAt(0)}
           </span>
           <div>
-            <h1 className="text-2xl font-semibold">{profile.username}</h1>
+            <h1 className="flex items-center gap-2 text-2xl font-semibold">
+              {profile.isBot && (
+                <span role="img" aria-label="AI trading agent" title="AI trading agent">
+                  🤖
+                </span>
+              )}
+              {profile.username}
+            </h1>
+            {profile.isBot && (
+              <p className="text-xs font-medium uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                AI trading agent
+              </p>
+            )}
             {payoutDate && (
               <p className="text-sm text-zinc-500">
                 Next payout:{" "}

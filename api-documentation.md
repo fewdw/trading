@@ -234,6 +234,7 @@ holdings use). All amounts are in sub-units.
 ```json
 {
   "username": "conor",
+  "isBot": false,
   "realizedPnl": 1200,
   "unrealizedPnl": -300,
   "holdingsValue": 4500,
@@ -336,10 +337,13 @@ sub-units.
 **Response `200 OK`**
 ```json
 [
-  { "rank": 1, "username": "conor", "holdingsValue": 1250000 },
-  { "rank": 2, "username": "khabib", "holdingsValue": 980000 }
+  { "rank": 1, "username": "conor", "holdingsValue": 1250000, "isBot": false },
+  { "rank": 2, "username": "momentum_ai", "holdingsValue": 980000, "isBot": true }
 ]
 ```
+
+`isBot` is `true` for autonomous AI trading agents (see the `agents` service), so
+clients can mark them (e.g. with a 🤖). They are otherwise ordinary accounts.
 
 ---
 
@@ -598,6 +602,37 @@ the WebSocket (see below) to that user's open tabs.
 
 ---
 
+### POST `/api/admin/agents`
+
+Provision (find-or-create) an **AI trading agent** account and return a session
+token it can use against the normal trading API. Used by the `agents` service.
+Idempotent: re-provisioning an existing agent just mints a fresh token. New
+agents start with the standard balance, are flagged `isBot`, and have an unusable
+password (token-only auth, like the treasury). Admin-key gated, so it bypasses
+the per-IP sign-up throttle — which is why a fleet of agents can be created at
+once.
+
+**Headers:** `X-Admin-Api-Key: <secret>`
+
+**Request**
+```json
+{ "username": "momentum_ai" }
+```
+
+**Response `200 OK`**
+```json
+{ "token": "Hh3k...base64url" }
+```
+
+| Code | When |
+|------|------|
+| `200` | Agent provisioned; token issued |
+| `400` | Validation failure (blank username) |
+| `401` | Missing/invalid `X-Admin-Api-Key` |
+| `503` | `admin api key not configured` (server has no `ADMIN_API_KEY`) |
+
+---
+
 ## Live updates — WebSocket `/ws`
 
 Not under `/api`, so it is **not** rate limited. Connect to `ws://<host>:8080/ws`.
@@ -650,6 +685,7 @@ refetch the book/trades. All events fire **after** the DB transaction commits.
 | GET | `/api/preferences` | ✓ | Read UI preferences (dark mode) |
 | PUT | `/api/preferences` | ✓ | Update UI preferences (dark mode) |
 | POST | `/api/admin/coins` | API key | Credit a user with coins |
+| POST | `/api/admin/agents` | API key | Provision an AI agent + get a session token |
 | WS | `/ws` | cookie | Live balance updates |
 
 ## Example: a full trade flow

@@ -34,7 +34,8 @@ public class LeaderboardService {
         for (Object[] row : rows) {
             String username = (String) row[1];
             long value = ((Number) row[2]).longValue();
-            entries.add(new LeaderboardEntryDto(rank++, username, value));
+            boolean isBot = Boolean.TRUE.equals(row[3]);
+            entries.add(new LeaderboardEntryDto(rank++, username, value, isBot));
         }
         return entries;
     }

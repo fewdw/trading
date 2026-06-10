@@ -49,6 +49,16 @@ export default async function LeaderboardPage() {
                     {MEDALS[e.rank] ?? e.rank}
                   </span>
                   <span className="flex-1 truncate font-medium">
+                    {e.isBot && (
+                      <span
+                        className="mr-1"
+                        role="img"
+                        aria-label="AI trading agent"
+                        title="AI trading agent"
+                      >
+                        🤖
+                      </span>
+                    )}
                     {e.username}
                     {isMe && (
                       <span className="ml-2 text-xs text-green-600 dark:text-green-400">

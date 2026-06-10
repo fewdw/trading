@@ -1,6 +1,8 @@
 package com.ufc.server.admin;
 
+import com.ufc.server.dto.AgentTokenDto;
 import com.ufc.server.dto.GiveCoinsDTO;
+import com.ufc.server.dto.ProvisionAgentDto;
 import com.ufc.server.user.User;
 import com.ufc.server.websocket.BalanceWebSocketHandler;
 import jakarta.validation.Valid;
@@ -47,5 +49,24 @@ public class AdminController {
             updated.getReservedCoins()
         );
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Provision (find-or-create) an AI trading agent and return a session token
+     * it can use against the normal trading API. Admin-key gated, so it bypasses
+     * the per-IP signup throttle that would otherwise block creating many agents
+     * at once. Idempotent — re-provisioning just mints a fresh token.
+     */
+    @PostMapping("/agents")
+    public ResponseEntity<AgentTokenDto> provisionAgent(
+        @RequestHeader(
+            value = "X-Admin-Api-Key",
+            required = false
+        ) String apiKey,
+        @Valid @RequestBody ProvisionAgentDto dto
+    ) {
+        adminAuthService.requireAdmin(apiKey); // 401/503 unless a valid admin key
+        String token = adminService.provisionAgent(dto.username());
+        return ResponseEntity.ok(new AgentTokenDto(token));
     }
 }

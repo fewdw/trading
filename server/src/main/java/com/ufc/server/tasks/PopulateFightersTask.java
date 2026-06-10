@@ -39,14 +39,17 @@ public class PopulateFightersTask {
     private final RestClient scraper;
     private final FighterRepository fighterRepository;
     private final UserService userService;
+    private final long seedPrice;
 
     public PopulateFightersTask(
         @Value("${scraper.base-url}") String scraperBaseUrl,
+        @Value("${fighter.seed-price:1250}") long seedPrice,
         FighterRepository fighterRepository,
         UserRepository userRepository,
         UserService userService
     ) {
         this.scraper = RestClient.create(scraperBaseUrl);
+        this.seedPrice = seedPrice;
         this.fighterRepository = fighterRepository;
         this.userService = userService;
     }
@@ -94,7 +97,7 @@ public class PopulateFightersTask {
                 fighter.setName(name);
                 fighter.setPhoto(f.photo());
                 fighter.setStatus(Status.ACTIVE);
-                fighter.setLastPrice(1250);
+                fighter.setLastPrice(seedPrice);
                 fighterRepository.save(fighter);
                 log.info("adding fighter: {}", name);
                 if (fighter.getPhoto() == null) {

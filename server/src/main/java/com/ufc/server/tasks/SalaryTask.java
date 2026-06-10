@@ -7,36 +7,33 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Pays a flat salary (in coins) to every user.
+ * Pays a flat salary (in sub-units) to every user.
  *
- * Runs on a fixed wall-clock schedule (1st and 15th of each month at 06:00,
- * UTC by default), not a fixed delay -- so restarting the app no longer hands
- * out an extra payout; it only ever pays at the scheduled times.
+ * <p>The job fires daily at 06:00 (zone from {@code salary.zone}) but only pays
+ * on the configured N-day cycle (see {@link SalaryService}). Anchoring to a
+ * fixed wall-clock time plus a date-based cycle means restarting the app never
+ * hands out an extra payout — it only ever pays once per cycle day.
  */
 @Component
 @Slf4j
 public class SalaryTask {
 
-    // The amount lives in SalaryService so the "next payout" shown to users
-    // always matches what's actually paid here.
-    private static final long SALARY = SalaryService.SALARY;
-
     private final UserRepository userRepository;
+    private final SalaryService salaryService;
 
-    public SalaryTask(UserRepository userRepository) {
+    public SalaryTask(UserRepository userRepository, SalaryService salaryService) {
         this.userRepository = userRepository;
+        this.salaryService = salaryService;
     }
 
-    // Twice a month (~every two weeks). Time zone defaults to UTC; override with
-    // salary.cron-zone (e.g. America/Sao_Paulo) and/or salary.cron if needed.
-    @Scheduled(
-        cron = "${salary.cron:0 0 6 1,15 * *}",
-        zone = "${salary.cron-zone:UTC}"
-    )
+    @Scheduled(cron = "0 0 6 * * *", zone = "${salary.zone:UTC}")
     @Transactional
     public void giveSalary() {
-        log.info("Giving salary to all users...");
-        int updated = userRepository.addAvailableCoinsToAll(SALARY);
-        log.info("Gave {} coins of salary to {} users", SALARY, updated);
+        if (!salaryService.isPayoutToday()) {
+            return; // not a payout day on the N-day cycle
+        }
+        long amount = salaryService.salaryAmount();
+        int updated = userRepository.addAvailableCoinsToAll(amount);
+        log.info("Gave {} sub-units of salary to {} users", amount, updated);
     }
 }

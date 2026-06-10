@@ -3,10 +3,12 @@ package com.ufc.server.dto;
 /**
  * One row of the top-holders leaderboard. {@code rank} is 1-based;
  * {@code holdingsValue} is the user's mark-to-market portfolio value in
- * sub-units (1 coin = 100).
+ * sub-units (1 coin = 100). {@code isBot} marks AI trading agents so the UI can
+ * badge them with a 🤖.
  */
 public record LeaderboardEntryDto(
     int rank,
     String username,
-    long holdingsValue
+    long holdingsValue,
+    boolean isBot
 ) {}

@@ -1,6 +1,6 @@
 # Deploying to Railway
 
-This stack is four pieces that Docker Compose runs together locally. Railway runs
+This stack is five pieces that Docker Compose runs together locally. Railway runs
 each as its own **service** inside one **project**, joined by a private network.
 
 | Local compose service | Railway service | Public URL? | Notes |
@@ -9,6 +9,7 @@ each as its own **service** inside one **project**, joined by a private network.
 | `backend`  | **backend**  | **yes** | Spring Boot; public so the browser can open the WebSocket |
 | `scrape`   | **scrape**   | no | Python scraper; only the backend calls it |
 | `frontend` | **frontend** | **yes** | Next.js; what users visit |
+| `agents`   | **agents**   | no | Python AI trading bots; only call the backend API |
 
 > Railway reference syntax `${{Service.VAR}}` pulls a value from another service.
 > It only resolves **after** the referenced service exists and (for domains) has a
@@ -21,14 +22,15 @@ each as its own **service** inside one **project**, joined by a private network.
 
 1. Push this repo to GitHub (it already lives at `github.com/fewdw/trading`).
 2. Railway → **New Project → Deploy from GitHub repo** → pick the repo.
-3. That creates one service. Add the other two with **New → GitHub Repo** (same repo).
-4. For **each** of the three services, open **Settings → Source** and set the
+3. That creates one service. Add the other three with **New → GitHub Repo** (same repo).
+4. For **each** of the four services, open **Settings → Source** and set the
    **Root Directory** so Railway uses that folder's Dockerfile:
    - backend  → `server`
    - scrape   → `scrape`
    - frontend → `client`
-   Rename the services to `backend`, `scrape`, `frontend` (Settings → Service name)
-   so the variable references below match.
+   - agents   → `agents`
+   Rename the services to `backend`, `scrape`, `frontend`, `agents`
+   (Settings → Service name) so the variable references below match.
 5. **New → Database → Add PostgreSQL.** Leave its name as `Postgres`.
 
 ## 2. Generate public domains
@@ -51,6 +53,18 @@ SCRAPER_URL=http://${{scrape.RAILWAY_PRIVATE_DOMAIN}}:5001
 ADMIN_API_KEY=<paste a strong random string: `openssl rand -hex 32`>
 ```
 
+Optional backend tuning (set only to override the defaults):
+```
+FIGHTER_SEED_PRICE=1250          # IPO price per share in sub-units (1250 = 12.50 coins)
+FIGHTER_SEED_SHARES=1000         # shares minted + listed per fighter at IPO
+PORTFOLIO_SNAPSHOTS_PER_HOUR=1   # 1 = hourly, 2 = every 30 min, 4 = every 15 min
+SALARY_AMOUNT=50000              # salary per payout in sub-units (50000 = 500 coins)
+SALARY_INTERVAL_DAYS=14          # 1 = daily, 2 = every other day, 14 = every two weeks
+```
+> Seed price/shares apply to fighters listed *after* the change, so for a clean
+> slate set them before first boot (or against an empty DB). Salary is always
+> paid at 06:00 UTC; the profile's "next payout" line reflects the interval.
+
 ### frontend
 ```
 PORT=3000
@@ -68,15 +82,44 @@ NODE_ENV=production
 ### scrape
 No variables needed.
 
+### agents
+```
+RUN_WITH_AI=1
+BACKEND_URL=http://${{backend.RAILWAY_PRIVATE_DOMAIN}}:8080
+ADMIN_API_KEY=${{backend.ADMIN_API_KEY}}
+GEMINI_API_KEY=<your Google AI Studio key>
+GEMINI_MODEL=gemini-2.5-flash
+```
+
+> `RUN_WITH_AI=0` turns the agents off entirely (the service starts, logs, and
+> idles — no trading); `1` runs them. A quick kill-switch without deleting the
+> service.
+
+> The agents talk only to the backend, over the **private** network — no public
+> domain and no egress fee, even though they make a lot of small requests.
+> `ADMIN_API_KEY` references the backend's key so the two never drift; the agents
+> use it to provision their bot accounts via `POST /api/admin/agents` (this also
+> means the backend must have `ADMIN_API_KEY` set — it already does). If the
+> agents' logs show connection errors reaching the backend over the private
+> domain, switch `BACKEND_URL` to the backend's **public** domain
+> (`https://${{backend.RAILWAY_PUBLIC_DOMAIN}}`) as a fallback. Leave
+> `GEMINI_API_KEY` blank to run the bots on their deterministic fallback (no LLM).
+
+> **Tuning (optional):** `AGENT_TICK_SECONDS` (default 30), `STRATEGY_REFRESH_SECONDS`
+> (default 240), and `MAX_FIGHTERS` (default 20) trade off market liveliness
+> against Gemini spend.
+
 ## 4. Deploy
 
 Saving the variables redeploys everything. Watch each service's **Deploy logs**.
-Order things settle in: Postgres → scrape → backend → frontend.
+Order things settle in: Postgres → scrape → backend → frontend → agents.
 
 Visit the frontend's public domain. Then check:
 - Pages load (frontend → backend over HTTPS works).
 - Live prices tick and the coin badge updates (browser WebSocket → backend `/ws`).
 - Sign up → you're logged in immediately (auth is username + password only).
+- The **agents** logs show ~10 bots provisioned and placing orders; within a
+  minute the leaderboard shows 🤖 agents and the fighter order books fill in.
 
 ---
 

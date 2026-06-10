@@ -17,6 +17,7 @@ import java.util.List;
  */
 public record ProfileDto(
     String username,
+    boolean isBot,
     long realizedPnl,
     long unrealizedPnl,
     long holdingsValue,

@@ -18,16 +18,16 @@ public interface HoldingRepository extends JpaRepository<Holding, Long> {
 
     /**
      * Top holders by mark-to-market holdings value, excluding one username (the
-     * treasury house account). Each row is {@code [userId, username, value]};
+     * treasury house account). Each row is {@code [userId, username, value, isBot]};
      * {@code value} is read via {@link Number} to stay portable across the
      * database-specific return type of {@code sum(...)}. Use a {@link Pageable}
      * to cap the result (e.g. top 10).
      */
     @Query(
-        "select u.id, u.username, sum(h.quantity * f.lastPrice) " +
+        "select u.id, u.username, sum(h.quantity * f.lastPrice), u.isBot " +
         "from Holding h join h.user u join h.fighter f " +
         "where h.quantity > 0 and u.username <> :exclude " +
-        "group by u.id, u.username " +
+        "group by u.id, u.username, u.isBot " +
         "order by sum(h.quantity * f.lastPrice) desc"
     )
     List<Object[]> findTopHolders(

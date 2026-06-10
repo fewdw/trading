@@ -13,6 +13,7 @@ import com.ufc.server.ranking.Status;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,8 +22,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     public static final String TREASURY_USERNAME = "__TREASURY__";
-    public static final long SEED_SHARES = 1000;
-    public static final long SEED_PRICE = 1250;
+
+    /** IPO shares minted per fighter and their seed price (sub-units), from config. */
+    private final long seedShares;
+    private final long seedPrice;
 
     private final FighterRepository fighterRepository;
     private final UserRepository userRepository;
@@ -30,11 +33,15 @@ public class UserService {
     private final OrderRepository orderRepository;
 
     public UserService(
+        @Value("${fighter.seed-shares:1000}") long seedShares,
+        @Value("${fighter.seed-price:1250}") long seedPrice,
         FighterRepository fighterRepository,
         UserRepository userRepository,
         HoldingRepository holdingRepository,
         OrderRepository orderRepository
     ) {
+        this.seedShares = seedShares;
+        this.seedPrice = seedPrice;
         this.fighterRepository = fighterRepository;
         this.userRepository = userRepository;
         this.holdingRepository = holdingRepository;
@@ -43,7 +50,7 @@ public class UserService {
 
     /**
      * Give the market initial liquidity for any active fighter the treasury
-     * doesn't already back: mint {@link #SEED_SHARES} shares to the treasury and
+     * doesn't already back: mint {@code seedShares} shares to the treasury and
      * post a single sell order for them. Idempotent — keyed on whether the
      * treasury already holds the fighter, so it's safe to run on every refresh.
      */
@@ -73,8 +80,8 @@ public class UserService {
             Holding holding = new Holding();
             holding.setUser(treasury);
             holding.setFighter(fighter);
-            holding.setQuantity(SEED_SHARES);
-            holding.setReservedQuantity(SEED_SHARES);
+            holding.setQuantity(seedShares);
+            holding.setReservedQuantity(seedShares);
             holding.setAveragePrice(0); // minted, no cost basis
             holdingRepository.save(holding);
 
@@ -84,8 +91,8 @@ public class UserService {
             seedOrder.setFighter(fighter);
             seedOrder.setSide(OrderSide.SELL);
             seedOrder.setType(OrderType.LIMIT);
-            seedOrder.setLimitPrice(SEED_PRICE);
-            seedOrder.setQuantity(SEED_SHARES);
+            seedOrder.setLimitPrice(seedPrice);
+            seedOrder.setQuantity(seedShares);
             seedOrder.setFilledQuantity(0);
             seedOrder.setStatus(OrderStatus.OPEN);
             orderRepository.save(seedOrder);

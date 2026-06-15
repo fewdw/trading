@@ -16,7 +16,7 @@ docker compose -f monitoring/docker-compose.yml up
 
 - Grafana → http://localhost:3001 (anonymous admin, no login)
 - Prometheus → http://localhost:9090
-- Raw metrics → http://localhost:8080/actuator/prometheus
+- Raw metrics → http://localhost:9091/actuator/prometheus (actuator's own port)
 
 In Grafana the Prometheus datasource is pre-provisioned. Create a dashboard and
 add panels with the queries below, then drive traffic (see

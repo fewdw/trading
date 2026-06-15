@@ -20,11 +20,10 @@ import time
 from dataclasses import dataclass, field
 
 import httpx
-
 from api import MarketClient, Unauthorized
 from executor import ExecConfig, run_tick
 from personas import ROSTER, Persona
-from strategist import StrategyDirective, Stance, Strategist
+from strategist import Stance, Strategist, StrategyDirective
 
 log = logging.getLogger("agents")
 
@@ -95,7 +94,9 @@ def provision_all(client: MarketClient, refresh_seconds: float) -> list[Agent]:
                 token = client.provision_agent(persona.username)
                 break
             except (httpx.HTTPError, Exception) as e:  # backend may still be booting
-                log.warning("provision %s failed (%s); retrying in 5s", persona.username, e)
+                log.warning(
+                    "provision %s failed (%s); retrying in 5s", persona.username, e
+                )
                 time.sleep(5)
         agents.append(
             Agent(
@@ -160,7 +161,10 @@ def account_summary(client: MarketClient, token: str) -> dict:
 
 def _ai_enabled() -> bool:
     return os.environ.get("RUN_WITH_AI", "1").strip().lower() in (
-        "1", "true", "yes", "on"
+        "1",
+        "true",
+        "yes",
+        "on",
     )
 
 
@@ -187,9 +191,14 @@ def main() -> None:
     client = MarketClient(cfg.backend_url, cfg.admin_api_key)
     strategist = Strategist(cfg.gemini_api_key, cfg.gemini_model)
     agents = provision_all(client, cfg.refresh_seconds)
-    log.info("%d agents live; tick=%ss refresh=%ss trade_rate=%.2f llm=%s",
-             len(agents), cfg.tick_seconds, cfg.refresh_seconds,
-             cfg.trade_rate, strategist.llm_enabled)
+    log.info(
+        "%d agents live; tick=%ss refresh=%ss trade_rate=%.2f llm=%s",
+        len(agents),
+        cfg.tick_seconds,
+        cfg.refresh_seconds,
+        cfg.trade_rate,
+        strategist.llm_enabled,
+    )
 
     try:
         while True:
@@ -206,10 +215,21 @@ def main() -> None:
                             snap = dict(base_snap)
                             snap["yourPortfolio"] = account_summary(client, agent.token)
                             agent.directive = strategist.decide(agent.persona, snap)
-                            agent.next_refresh = now + cfg.refresh_seconds * random.uniform(0.85, 1.15)
-                        run_tick(agent.persona, agent.directive, market, client, agent.token, cfg.exec_cfg)
+                            agent.next_refresh = (
+                                now + cfg.refresh_seconds * random.uniform(0.85, 1.15)
+                            )
+                        run_tick(
+                            agent.persona,
+                            agent.directive,
+                            market,
+                            client,
+                            agent.token,
+                            cfg.exec_cfg,
+                        )
                     except Unauthorized:
-                        log.warning("re-provisioning %s (token expired)", agent.persona.username)
+                        log.warning(
+                            "re-provisioning %s (token expired)", agent.persona.username
+                        )
                         agent.token = client.provision_agent(agent.persona.username)
                     except Exception:
                         log.exception("agent %s tick failed", agent.persona.username)

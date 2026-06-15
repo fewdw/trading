@@ -27,6 +27,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SCRAPER_URL: ${SCRAPER_URL}
       ADMIN_API_KEY: ${ADMIN_API_KEY}
+      # Restrict the /ws WebSocket to the frontend's origin. Empty => any origin.
+      WS_ALLOWED_ORIGINS: ${FRONTEND_URL}
       # Market tuning (optional; defaults applied if unset in .env).
       FIGHTER_SEED_PRICE: ${FIGHTER_SEED_PRICE:-1250}
       FIGHTER_SEED_SHARES: ${FIGHTER_SEED_SHARES:-1000}
@@ -36,6 +38,10 @@ services:
       SALARY_INTERVAL_DAYS: ${SALARY_INTERVAL_DAYS:-14}
     ports:
       - "8080:8080"
+      # Actuator/management port — published only so the local Prometheus stack
+      # can scrape /actuator/prometheus. In production (Railway) this port is
+      # left off the public domain, keeping metrics private.
+      - "9091:9091"
     depends_on:
       postgres:
         condition: service_healthy

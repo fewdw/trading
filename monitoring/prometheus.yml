@@ -5,6 +5,7 @@ scrape_configs:
   - job_name: fighter-market
     metrics_path: /actuator/prometheus
     static_configs:
-      # The backend's published port on the host (docker compose maps 8080,
-      # and `./mvnw spring-boot:run` also listens there).
-      - targets: ["host.docker.internal:8080"]
+      # Actuator runs on its own management port (9091), not the main app port
+      # (8080). docker compose maps 9091, and `./mvnw spring-boot:run` listens
+      # there too. Override via MANAGEMENT_PORT must be reflected here.
+      - targets: ["host.docker.internal:9091"]

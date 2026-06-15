@@ -51,7 +51,13 @@ SPRING_DATASOURCE_USERNAME=${{Postgres.PGUSER}}
 SPRING_DATASOURCE_PASSWORD=${{Postgres.PGPASSWORD}}
 SCRAPER_URL=http://${{scrape.RAILWAY_PRIVATE_DOMAIN}}:5001
 ADMIN_API_KEY=<paste a strong random string: `openssl rand -hex 32`>
+WS_ALLOWED_ORIGINS=https://${{frontend.RAILWAY_PUBLIC_DOMAIN}}
 ```
+> `WS_ALLOWED_ORIGINS` locks the `/ws` WebSocket to the frontend's origin so a
+> stray site can't open sockets against the backend. Leave it unset (or `*`) only
+> for local testing. Actuator (metrics/prometheus) runs on its own port and is
+> **not** part of the generated public domain, so it stays private automatically —
+> no extra config needed.
 
 Optional backend tuning (set only to override the defaults):
 ```

@@ -63,6 +63,16 @@ public class AuthService {
         "fighter1"
     );
 
+    /**
+     * A valid bcrypt hash (cost 10) of a throwaway string — it matches no real
+     * password. When a login names a user that doesn't exist (or the non-loginable
+     * treasury account) we still run a bcrypt comparison against this, so a failed
+     * login takes the same time whether or not the username exists. That closes the
+     * timing side-channel an attacker could otherwise use to enumerate usernames.
+     */
+    private static final String DUMMY_HASH =
+        "$2y$10$y75cuD2ScNOGt9vEwxmEceTUNqdiDMyMW.ZJvCijaok9sPWzq4NOu";
+
     private final UserRepository userRepository;
     private final SessionService sessionService;
     private final PasswordEncoder passwordEncoder;
@@ -125,17 +135,22 @@ public class AuthService {
     public LoginResult login(LoginDTO dto) {
         String username = dto.username().trim();
         Optional<User> maybeUser = userRepository.findByUsername(username);
-        boolean badCredentials =
-            maybeUser.isEmpty() ||
-            maybeUser
+
+        // The treasury is a system account and can never be logged into.
+        boolean loginable =
+            maybeUser.isPresent() &&
+            !maybeUser
                 .get()
                 .getUsername()
-                .equals(TreasurySeederTask.TREASURY_USERNAME) ||
-            !passwordEncoder.matches(
-                dto.password(),
-                maybeUser.get().getPasswordHash()
-            );
-        if (badCredentials) {
+                .equals(TreasurySeederTask.TREASURY_USERNAME);
+
+        // Always run bcrypt — against the real hash when the user is loginable,
+        // otherwise against DUMMY_HASH — so the response time never reveals
+        // whether the username exists.
+        String hash = loginable ? maybeUser.get().getPasswordHash() : DUMMY_HASH;
+        boolean passwordMatches = passwordEncoder.matches(dto.password(), hash);
+
+        if (!loginable || !passwordMatches) {
             throw new AuthException(
                 HttpStatus.UNAUTHORIZED,
                 "invalid credentials"

@@ -4,7 +4,7 @@
 
 A real-time fantasy stock market where the "stocks" are UFC fighters. You start
 with 1,000 coins, buy and sell shares of fighters through a real order book, and
-your net worth moves with the market. **[Live demo →](https://client-production-2c9e.up.railway.app)**
+your net worth moves with the market.
 
 It started as an excuse to build the part most trading demos fake: an actual
 **limit-order matching engine**. There are no mocked prices here — every price
